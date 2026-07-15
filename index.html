@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basalt — Edit your React Native UI without leaving VS Code</title>
+<meta name="description" content="Basalt turns your running app into a live, clickable canvas right inside VS Code. Move text, resize views, tweak styles — your real source code updates underneath.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#131313;
+    --border:#232323;
+    --text:#f2f2f0;
+    --text-dim:#8a8a86;
+    --accent:#ff6a3d;
+    --accent-dim:#3a2318;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  a{color:inherit;}
+  ::selection{background:var(--accent); color:#0a0a0a;}
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 32px; }
+
+  /* ---------- NAV ---------- */
+  nav{ position:relative; z-index:10; padding:26px 0; border-bottom:1px solid var(--border); }
+  nav .wrap{ display:flex; align-items:center; justify-content:space-between; }
+  .logo{
+    font-weight:700; font-size:19px; letter-spacing:-0.01em;
+    display:flex; align-items:center; gap:9px; text-decoration:none;
+  }
+  .logo-mark{
+    width:9px; height:9px; background:var(--accent); border-radius:2px;
+  }
+  .nav-links{ display:flex; align-items:center; gap:36px; }
+  .nav-links a{
+    font-size:14.5px; color:var(--text-dim); text-decoration:none;
+    transition:color .15s ease;
+  }
+  .nav-links a:hover{ color:var(--text); }
+  .nav-actions{ display:flex; align-items:center; gap:12px; }
+  .btn{
+    font-family:'Inter', sans-serif; font-size:14.5px; font-weight:600;
+    padding:10px 20px; border-radius:8px; text-decoration:none;
+    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+    transition:transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+  }
+  .btn-primary{ background:var(--accent); color:#0a0a0a; border:1px solid var(--accent); }
+  .btn-primary:hover{ opacity:0.9; transform:translateY(-1px); }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--border); }
+  .btn-ghost:hover{ border-color:#3a3a3a; transform:translateY(-1px); }
+  @media (max-width:760px){ .nav-links{ display:none; } }
+
+  /* ---------- HERO ---------- */
+  header.hero{
+    position:relative;
+    padding:120px 0 90px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .glow{
+    position:absolute;
+    left:50%; bottom:-260px;
+    width:900px; height:520px;
+    transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgba(255,106,61,0.16) 0%, rgba(255,106,61,0) 70%);
+    pointer-events:none;
+  }
+  .arc{
+    position:absolute;
+    left:50%; bottom:-420px;
+    width:1400px; height:1400px;
+    transform:translateX(-50%);
+    border-radius:50%;
+    border:1px solid rgba(255,106,61,0.18);
+    pointer-events:none;
+  }
+  h1{
+    position:relative;
+    font-weight:800;
+    font-size:clamp(38px, 5.6vw, 68px);
+    line-height:1.08;
+    letter-spacing:-0.02em;
+    margin:0 auto 30px;
+    max-width:760px;
+  }
+  .highlight{
+    display:inline-block;
+    color:var(--accent);
+    border:1px solid rgba(255,106,61,0.35);
+    background:var(--accent-dim);
+    padding:2px 16px 6px;
+    border-radius:10px;
+    margin-top:8px;
+  }
+  .sub{
+    position:relative;
+    font-size:18px;
+    line-height:1.65;
+    color:var(--text-dim);
+    max-width:560px;
+    margin:0 auto 40px;
+  }
+  .sub code{
+    font-family:'JetBrains Mono', monospace;
+    font-size:15px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:2px 6px;
+    border-radius:5px;
+    color:var(--text);
+  }
+  .cta-row{
+    position:relative;
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .cta-row .btn{ padding:14px 26px; font-size:15px; }
+  .fine-print{
+    position:relative;
+    font-size:13.5px;
+    color:var(--text-dim);
+  }
+
+  /* ---------- LOGO / TRUST ROW ---------- */
+  .trust{
+    position:relative;
+    text-align:center;
+    padding:36px 0 0;
+    font-size:12.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#5c5c58;
+  }
+
+  /* ---------- HOW IT WORKS ---------- */
+  .section{ padding:100px 0; border-top:1px solid var(--border); }
+  .section-tag{
+    text-align:center;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 16px;
+  }
+  .section-title{
+    text-align:center;
+    font-weight:700;
+    font-size:clamp(26px, 3.2vw, 38px);
+    letter-spacing:-0.01em;
+    max-width:640px;
+    margin:0 auto 60px;
+    line-height:1.2;
+  }
+  .steps{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .step{ background:var(--panel); padding:34px 30px; }
+  .step .num{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px; color:var(--accent); margin:0 0 18px;
+  }
+  .step h3{ font-size:17px; font-weight:600; margin:0 0 10px; }
+  .step p{ font-size:14.5px; line-height:1.65; color:var(--text-dim); margin:0; }
+
+  @media (max-width:760px){ .steps{ grid-template-columns:1fr; } }
+
+  /* ---------- VIDEO SHOWCASE ---------- */
+  .videos{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:28px;
+  }
+  .video-card h3{ font-size:17px; font-weight:600; margin:20px 0 8px; }
+  .video-card p{ font-size:14.5px; line-height:1.6; color:var(--text-dim); margin:0; }
+  .video-frame{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    aspect-ratio:16/10;
+  }
+  .video-frame video{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+    background:#000;
+  }
+  @media (max-width:760px){ .videos{ grid-template-columns:1fr; } }
+
+  /* ---------- FINAL CTA ---------- */
+  .band{ border-top:1px solid var(--border); padding:110px 0; text-align:center; position:relative; overflow:hidden; }
+  .band h2{
+    font-weight:700; font-size:clamp(28px, 3.8vw, 44px);
+    max-width:600px; margin:0 auto 34px; line-height:1.18; letter-spacing:-0.01em;
+  }
+  .band .cta-row{ justify-content:center; margin-bottom:14px; }
+
+  footer{ border-top:1px solid var(--border); padding:34px 0; }
+  footer .wrap{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  footer p{ font-size:13px; color:var(--text-dim); margin:0; }
+  footer .foot-links a{ text-decoration:none; color:var(--text-dim); font-size:13px; margin-left:22px; }
+  footer .foot-links a:hover{ color:var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#top">
+      <span class="logo-mark"></span>
+      basalt
+    </a>
+    <div class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="nav-actions">
+      <a class="btn btn-primary" href="#" target="_blank" rel="noopener">Install</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="arc" aria-hidden="true"></div>
+  <div class="wrap">
+    <h1>Edit your React Native app<br><span class="highlight">like it's Canva</span></h1>
+    <p class="sub">Basalt turns your running app into a live, clickable canvas right inside VS Code. Move text, resize views, tweak styles — and <code>your real source code</code> updates underneath, formatting intact.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#" target="_blank" rel="noopener">Install for VS Code</a>
+      <a class="btn btn-ghost" href="https://github.com/" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+    <p class="fine-print">Free during beta · No account required</p>
+  </div>
+  <p class="trust">Built for React Native &amp; Expo</p>
+</header>
+
+<section class="section" id="how-it-works">
+  <div class="wrap">
+    <p class="section-tag">How it works</p>
+    <h2 class="section-title">You don't leave the codebase to make it beautiful</h2>
+    <div class="steps">
+      <div class="step">
+        <p class="num">01</p>
+        <h3>Point at the preview</h3>
+        <p>Click anything in your running app — text, a card, an image — the same as you'd click it in Canva.</p>
+      </div>
+      <div class="step">
+        <p class="num">02</p>
+        <h3>Move, resize, restyle</h3>
+        <p>Drag it where you want, resize it, change its color or spacing, right on the canvas.</p>
+      </div>
+      <div class="step">
+        <p class="num">03</p>
+        <h3>Code updates, not a copy</h3>
+        <p>Basalt edits your real source file in place — your styling system, your formatting, untouched.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="demo">
+  <div class="wrap">
+    <p class="section-tag">See it in action</p>
+    <h2 class="section-title">Two tools, one canvas</h2>
+    <div class="videos">
+      <div class="video-card">
+        <div class="video-frame">
+          <video src="video_1.mp4" controls preload="metadata" playsinline></video>
+        </div>
+        <h3>Edit</h3>
+        <p>Click any element in your running app and change its text, size, position, or style — directly on the canvas.</p>
+      </div>
+      <div class="video-card">
+        <div class="video-frame">
+          <video src="video_2.mp4" controls preload="metadata" playsinline></video>
+        </div>
+        <h3>Inspect</h3>
+        <p>Hover any element to see exactly which component and source line it maps to, before you touch anything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <h2>Stop hardcoding your way through every UI tweak</h2>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#" target="_blank" rel="noopener">Install for VS Code</a>
+    </div>
+    <p class="fine-print">Free during beta · No account required</p>
+  </div>
+</section>
+
+<footer id="faq">
+  <div class="wrap">
+    <p>Basalt — built for React Native</p>
+    <div class="foot-links">
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+      <a href="#top">Back to top</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
