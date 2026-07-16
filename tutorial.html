@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basalt — User Guide</title>
+<meta name="description" content="How to install and use Basalt to visually edit your React Native / Expo app right inside Cursor or VS Code.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#131313;
+    --border:#232323;
+    --text:#f2f2f0;
+    --text-dim:#8a8a86;
+    --accent:#ff6a3d;
+    --accent-dim:#3a2318;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  ::selection{background:var(--accent); color:#0a0a0a;}
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+  .wrap{ max-width:920px; margin:0 auto; padding:0 32px; }
+
+  /* ---------- NAV ---------- */
+  nav{ padding:26px 0; border-bottom:1px solid var(--border); }
+  nav .wrap{ display:flex; align-items:center; justify-content:space-between; max-width:1120px; }
+  .logo{
+    font-weight:700; font-size:19px; letter-spacing:-0.01em;
+    display:flex; align-items:center; gap:9px; text-decoration:none;
+  }
+  .logo-mark{
+    width:22px; height:22px;
+    display:block;
+    object-fit:contain;
+  }
+  .nav-links{ display:flex; align-items:center; gap:36px; }
+  .nav-links a{ font-size:14.5px; color:var(--text-dim); text-decoration:none; transition:color .15s ease; }
+  .nav-links a:hover{ color:var(--text); }
+  .btn{
+    font-family:'Inter', sans-serif; font-size:14.5px; font-weight:600;
+    padding:10px 20px; border-radius:8px; text-decoration:none;
+    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+    transition:transform .15s ease, opacity .15s ease;
+  }
+  .btn-primary{ background:var(--accent); color:#0a0a0a; border:1px solid var(--accent); }
+  .btn-primary:hover{ opacity:0.9; transform:translateY(-1px); }
+  @media (max-width:760px){ .nav-links{ display:none; } }
+
+  /* ---------- HEADER ---------- */
+  .page-head{ padding:80px 0 60px; text-align:center; }
+  .eyebrow{
+    font-size:13px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 16px;
+  }
+  h1{
+    font-weight:800; font-size:clamp(32px, 4.4vw, 52px);
+    letter-spacing:-0.02em; line-height:1.1; margin:0 0 18px;
+  }
+  .page-sub{ font-size:17px; line-height:1.6; color:var(--text-dim); max-width:520px; margin:0 auto; }
+
+  /* ---------- STEPS ---------- */
+  .steps-list{ padding:20px 0 100px; }
+  .step-row{
+    display:grid;
+    grid-template-columns:120px 1fr;
+    gap:32px;
+    padding:48px 0;
+    border-top:1px solid var(--border);
+  }
+  .step-row:first-child{ border-top:none; }
+  .step-num{
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px; color:var(--accent);
+    padding-top:4px;
+  }
+  .step-num span{ display:block; font-size:12px; color:var(--text-dim); margin-top:6px; letter-spacing:0.04em; text-transform:uppercase; }
+  .step-body h2{ font-size:20px; font-weight:700; margin:0 0 10px; letter-spacing:-0.01em; }
+  .step-body p{ font-size:15px; line-height:1.7; color:var(--text-dim); margin:0 0 22px; max-width:560px; }
+  .step-body code{
+    font-family:'JetBrains Mono', monospace; font-size:13.5px;
+    background:var(--panel); border:1px solid var(--border);
+    padding:2px 6px; border-radius:5px; color:var(--text);
+  }
+  .shot-frame{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:10px;
+    display:inline-block;
+    max-width:100%;
+  }
+  .shot-frame img{
+    display:block;
+    max-width:100%;
+    height:auto;
+    border-radius:6px;
+  }
+  .shot-frame.tall img{ max-height:640px; width:auto; }
+  .shot-frame.wide{ display:block; }
+
+  @media (max-width:640px){
+    .step-row{ grid-template-columns:1fr; gap:12px; }
+    .step-num{ display:flex; align-items:baseline; gap:8px; padding-top:0; }
+    .step-num span{ margin-top:0; }
+  }
+
+  /* ---------- EDITOR TABS ---------- */
+  .editor-tabs{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    padding:0 0 20px;
+  }
+  .editor-tab-btn{
+    font-family:'Inter', sans-serif;
+    font-size:14.5px; font-weight:600;
+    padding:10px 22px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text-dim);
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .editor-tab-btn:hover{ color:var(--text); border-color:#3a3a3a; }
+  .editor-tab-btn.active{
+    background:var(--accent-dim);
+    border-color:rgba(255,106,61,0.4);
+    color:var(--accent);
+  }
+  .editor-panel{ display:none; }
+  .editor-panel.active{ display:block; }
+
+  /* ---------- BONUS SHOT ---------- */
+  .bonus{ padding:0 0 100px; text-align:center; }
+  .bonus .eyebrow{ text-align:left; }
+  .bonus h2{ font-size:22px; font-weight:700; margin:0 0 8px; text-align:left; }
+  .bonus p{ font-size:15px; color:var(--text-dim); margin:0 0 28px; text-align:left; max-width:560px; }
+
+  footer{ border-top:1px solid var(--border); padding:34px 0; }
+  footer .wrap{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; max-width:1120px; }
+  footer p{ font-size:13px; color:var(--text-dim); margin:0; }
+  footer .foot-links a{ text-decoration:none; color:var(--text-dim); font-size:13px; margin-left:22px; }
+  footer .foot-links a:hover{ color:var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="index.html">
+      <img class="logo-mark" src="assets/logo.svg" alt="">
+      basalt
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#how-it-works">How it works</a>
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <a class="btn btn-primary" href="#" target="_blank" rel="noopener">Install</a>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <p class="eyebrow">User guide</p>
+    <h1>Getting started with Basalt</h1>
+    <p class="page-sub">Four steps from installing the extension to editing your app's UI live, right inside your editor.</p>
+  </div>
+</header>
+
+<section class="steps-list">
+  <div class="wrap">
+
+    <div class="editor-tabs" role="tablist" aria-label="Editor">
+      <button type="button" class="editor-tab-btn active" data-editor="cursor" role="tab" aria-selected="true">Cursor</button>
+      <button type="button" class="editor-tab-btn" data-editor="vscode" role="tab" aria-selected="false">VS Code</button>
+    </div>
+
+    <div class="editor-panel active" id="panel-cursor" role="tabpanel">
+
+    <div class="step-row">
+      <div class="step-num">01<span>Install</span></div>
+      <div class="step-body">
+        <h2>Install Basalt</h2>
+        <p>Open the Extensions panel in Cursor, search <code>Basalt</code>, and click Install.</p>
+        <div class="shot-frame tall">
+          <img src="step1.png" alt="Searching for and installing the Basalt extension from the Marketplace">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">02<span>Open</span></div>
+      <div class="step-body">
+        <h2>Open the Basalt panel</h2>
+        <p>Click the Basalt icon in the Activity Bar on the left edge of your editor, then click <strong>Start Preview</strong>.</p>
+        <div class="shot-frame">
+          <img src="step2.png" alt="The Basalt sidebar panel with the Start Preview button">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">03<span>Preview</span></div>
+      <div class="step-body">
+        <h2>Your app opens in a phone frame</h2>
+        <p>Basalt boots your Expo app and renders it live, right next to your code. Switch between iPhone and iPad, and pick between Edit, Inspect and Preview modes from the dropdown.</p>
+        <div class="shot-frame">
+          <img src="step3.png" alt="The Basalt Phone Preview panel showing device and mode controls">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">04<span>Edit</span></div>
+      <div class="step-body">
+        <h2>Click anything to edit it</h2>
+        <p>In Edit mode, click text, cards, or images directly in the preview to change them. Basalt writes the change straight back into your source file — no separate design tool, no copy to keep in sync.</p>
+        <div class="shot-frame wide">
+          <img src="step4.png" alt="Editing an element directly in the Basalt phone preview">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">＋<span>Bonus</span></div>
+      <div class="step-body">
+        <h2>Or launch it from the Command Palette</h2>
+        <p>Press <code>cmd + Shift + P</code> (Mac) or <code>Ctrl + Shift + P</code> (Windows/Linux) and type <code>Basalt</code> to see every command — Start Preview, Stop Preview, Open Phone Preview, and more — without touching the sidebar.</p>
+        <div class="shot-frame wide">
+          <img src="extra1.png" alt="The Command Palette showing Basalt commands like Start Preview and Stop Preview">
+        </div>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="editor-panel" id="panel-vscode" role="tabpanel">
+
+    <div class="step-row">
+      <div class="step-num">01<span>Install</span></div>
+      <div class="step-body">
+        <h2>Install Basalt</h2>
+        <p>Open the Extensions panel in VS Code, search <code>Basalt</code>, and click Install.</p>
+        <div class="shot-frame tall">
+          <img src="step1vs.png" alt="Searching for and installing the Basalt extension in the VS Code Marketplace">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">02<span>Open</span></div>
+      <div class="step-body">
+        <h2>Open the Basalt panel</h2>
+        <p>Click the Basalt icon in the Activity Bar on the left edge of your editor, then click <strong>Start Preview</strong>.</p>
+        <div class="shot-frame">
+          <img src="step2vs.png" alt="The Basalt sidebar panel in VS Code with the Start Preview button">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">03<span>Preview</span></div>
+      <div class="step-body">
+        <h2>Your app opens in a phone frame</h2>
+        <p>Basalt boots your Expo app and renders it live, right next to your code — same phone preview, same Edit and Inspect modes, right inside VS Code.</p>
+        <div class="shot-frame">
+          <img src="step3vs.png" alt="The Basalt Phone Preview panel in VS Code">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">＋<span>Bonus</span></div>
+      <div class="step-body">
+        <h2>Or launch it from the Command Palette</h2>
+        <p>Press <code>⌘⇧P</code> (Mac) or <code>Ctrl⇧P</code> (Windows/Linux) and type <code>Basalt</code> to see every command — Start Preview, Stop Preview, Open Phone Preview, and more — without touching the sidebar.</p>
+        <div class="shot-frame wide">
+          <img src="extra1vs.png" alt="The VS Code Command Palette showing Basalt commands">
+        </div>
+      </div>
+    </div>
+
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Basalt — built for React Native</p>
+    <div class="foot-links">
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+      <a href="index.html">Home</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const tabBtns = document.querySelectorAll('.editor-tab-btn');
+  tabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-editor');
+      document.querySelectorAll('.editor-tab-btn').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+      document.querySelectorAll('.editor-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === `panel-${target}`);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
