@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basalt — Dashboard</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="basalt-ui.css">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#131313;
+    --panel-2:#0f0f0f;
+    --border:#232323;
+    --border-soft:#1c1c1c;
+    --text:#f2f2f0;
+    --text-dim:#8a8a86;
+    --text-faint:#5c5c58;
+    --accent:#ff6a3d;
+    --accent-dim:#3a2318;
+    --radius:3px;
+    --mono:'JetBrains Mono', monospace;
+    --ok:#7fbf8f;
+    --err:#ff8a8a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit; text-decoration:none;}
+  ::selection{background:var(--accent); color:#0a0a0a;}
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  button{ font-family:'Inter', sans-serif; }
+
+  .pulse-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-dim);
+    position:relative; flex-shrink:0;
+  }
+  .pulse-dot::after{
+    content:''; position:absolute; inset:-4px; border-radius:50%;
+    border:1px solid var(--accent); opacity:0.6;
+    animation:pulseRing 2s ease-out infinite;
+  }
+  @keyframes pulseRing{
+    0%{ transform:scale(0.6); opacity:0.7; }
+    100%{ transform:scale(1.8); opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce){ .pulse-dot::after{ animation:none; display:none; } }
+
+  .shell{ display:flex; min-height:100vh; }
+
+  .sidebar{
+    width:248px; flex-shrink:0;
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    padding:24px 18px;
+    position:sticky; top:0; height:100vh;
+  }
+  .logo{
+    font-weight:700; font-size:18px; letter-spacing:-0.01em;
+    display:flex; align-items:center; gap:9px;
+    padding:6px 10px 26px;
+  }
+  .logo-mark{ width:20px; height:20px; flex-shrink:0; }
+
+  .side-nav{ display:flex; flex-direction:column; gap:2px; flex:1; }
+  .side-nav a{
+    display:flex; align-items:center; gap:11px;
+    font-size:14px; font-weight:500; color:var(--text-dim);
+    padding:9px 10px; border-radius:2px;
+    transition:background .15s ease, color .15s ease;
+  }
+  .side-nav a:hover{ color:var(--text); background:var(--panel-2); }
+  .side-nav a.active{ color:var(--text); background:var(--panel); }
+  .side-nav a .hex{ width:14px; height:14px; flex-shrink:0; }
+  .side-nav a.active .hex polygon{ fill:var(--accent); stroke:var(--accent); }
+  .side-nav a:not(.active) .hex polygon{ fill:none; stroke:var(--text-faint); }
+
+  .sidebar-foot{ border-top:1px solid var(--border); padding-top:16px; margin-top:16px; }
+  .user-chip{ display:flex; align-items:center; gap:10px; padding:6px 10px 12px; }
+  .avatar{
+    width:32px; height:32px; border-radius:3px; flex-shrink:0;
+    background:linear-gradient(135deg, #ff8a5c, #e8622c);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:12px; font-weight:600; color:#1a0d06;
+  }
+  .user-name{ font-size:13px; font-weight:500; margin:0; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px; }
+  .user-plan{ font-size:12px; color:var(--text-faint); margin:0; line-height:1.3; }
+  .logout{
+    display:block; width:100%; text-align:left; font-size:13px; color:var(--text-dim);
+    padding:8px 10px; border-radius:2px; border:0; background:transparent; cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .logout:hover{ background:var(--panel-2); color:var(--text); }
+
+  .content{ flex:1; min-width:0; padding:36px 44px 80px; }
+  .content-head{
+    display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;
+    margin-bottom:34px;
+  }
+  .eyebrow{ font-size:12.5px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--accent); margin:0 0 8px; }
+  .content-head h1{ font-size:26px; font-weight:700; letter-spacing:-0.01em; margin:0; }
+  .badge-live{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:13px; color:var(--text-dim);
+    background:var(--panel); border:1px solid var(--border);
+    padding:8px 14px; border-radius:3px;
+  }
+
+  section{ scroll-margin-top:24px; margin-bottom:56px; }
+  .section-head{ margin-bottom:16px; }
+  .section-head h2{ font-size:15px; font-weight:600; margin:0 0 3px; }
+  .section-head p{ font-size:13.5px; color:var(--text-dim); margin:0; }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .stat-card{ background:var(--panel); padding:22px; }
+  .stat-label{ font-size:13px; color:var(--text-dim); margin:0 0 12px; }
+  .stat-value{ font-family:var(--mono); font-size:28px; font-weight:600; margin:0 0 8px; letter-spacing:-0.01em; }
+  .stat-delta{ font-size:12.5px; color:var(--text-faint); margin:0; display:flex; align-items:center; gap:5px; }
+  .stat-delta.up{ color:var(--ok); }
+  .stat-sync{ display:flex; align-items:center; gap:8px; font-size:22px; }
+
+  .panel-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:20px; align-items:stretch; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px;
+  }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; }
+  .panel-head h2{ font-size:15px; font-weight:600; margin:0; }
+  .panel-head .muted{ font-size:12.5px; color:var(--text-faint); font-family:var(--mono); }
+
+  .chart{ display:flex; align-items:flex-end; gap:10px; height:140px; }
+  .chart .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:8px; }
+  .chart .bar{ width:100%; min-height:2px; border-radius:2px 2px 2px 2px; background:linear-gradient(180deg, #ff8a5c, var(--accent)); opacity:0.95; }
+  .chart .bar.is-empty{ opacity:0.2; }
+  .chart .bar-label{ font-size:11px; color:var(--text-faint); font-family:var(--mono); }
+
+  .activity-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px; }
+  .activity-list li{ display:flex; gap:12px; }
+  .activity-list .dot{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); margin-top:7px; flex-shrink:0; }
+  .activity-list .dot.sale{ background:var(--accent); }
+  .activity-list .dot.buy{ background:#9cb4ff; }
+  .activity-list p{ margin:0; font-size:13.5px; line-height:1.5; }
+  .activity-list .file{ font-family:var(--mono); font-size:12.5px; color:var(--accent); }
+  .activity-list time{ display:block; font-size:12px; color:var(--text-faint); margin-top:2px; }
+  .empty{ color:var(--text-dim); font-size:13.5px; margin:0; }
+
+  .device-list, .product-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+  .device-list li, .product-list li{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 0; border-bottom:1px solid var(--border-soft);
+  }
+  .device-list li:last-child, .product-list li:last-child{ border-bottom:none; }
+  .device-name, .product-name{ font-size:14px; font-weight:500; margin:0 0 3px; }
+  .device-meta, .product-meta{ font-size:12.5px; color:var(--text-faint); margin:0; font-family:var(--mono); }
+  .device-status{ font-size:12.5px; color:var(--text-dim); display:flex; align-items:center; gap:7px; }
+  .sync-key-box{
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    margin-top:8px; padding:12px; border-radius:3px; background:var(--panel-2); border:1px solid var(--border);
+  }
+  .sync-key-box code{
+    flex:1; min-width:0; font-family:var(--mono); font-size:12px; color:var(--text);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  .license-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  .plan-name{ font-size:20px; font-weight:700; margin:0 0 6px; }
+  .plan-desc{ font-size:14px; color:var(--text-dim); margin:0; max-width:440px; line-height:1.6; }
+
+  .btn{
+    font-size:14px; font-weight:600; padding:11px 20px; border-radius:3px;
+    border:1px solid var(--border); background:transparent; color:var(--text);
+    cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .btn:disabled{ color:var(--text-faint); cursor:not-allowed; }
+  .btn-save{ background:var(--accent); color:#0a0a0a; border-color:var(--accent); }
+  .btn-save:hover{ opacity:0.92; }
+  .btn-ghost:hover{ border-color:#3a3a3a; }
+  .btn-sm{ padding:8px 12px; font-size:12.5px; }
+
+  .badge{
+    display:inline-block; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    padding:3px 7px; border-radius:2px; background:transparent; color:var(--accent);
+    border:1px solid rgba(255,106,61,.3);
+  }
+  .badge.pending{ background:transparent; color:#ffb84d; border-color:rgba(255,180,80,.35); }
+  .badge.hidden{ background:transparent; color:#9cb4ff; border-color:rgba(120,160,255,.35); }
+  .badge.deleted{ background:transparent; color:#ff8a8a; border-color:rgba(255,100,100,.35); }
+  .listing-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .listing-actions.btn-rail{ gap: 0; }
+  .listing-actions .btn{ padding:6px 10px; font-size:12px; }
+  .listing-actions.btn-rail .btn{ border: none; }
+  #productList li.is-flash{
+    outline: 1px solid rgba(255,106,61,.55);
+    background: rgba(255,106,61,.08);
+    border-radius: 6px;
+    transition: outline-color .4s ease, background .4s ease;
+  }
+  .product-name a, .activity-list a.file{
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .product-name a:hover, .activity-list a.file:hover{ text-decoration: underline; }
+  #productList li{
+    flex-direction:column; align-items:stretch; gap:8px;
+  }
+  #productList .listing-top{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; width:100%; }
+  .product-downloads{ font-size:12px; color:var(--text-dim); margin:4px 0 0; }
+  .badge.sandbox{ background:transparent; color:#9cb4ff; border-color:rgba(120,160,255,.35); }
+
+  .changelog-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:22px; }
+  .changelog-item{ display:flex; gap:18px; }
+  .changelog-tag{
+    font-family:var(--mono); font-size:12px; color:var(--accent); background:transparent;
+    border:1px solid rgba(255,106,61,0.3); padding:3px 9px; border-radius:2px; height:fit-content; white-space:nowrap;
+  }
+  .changelog-item h3{ font-size:14px; font-weight:600; margin:0 0 4px; }
+  .changelog-item p{ font-size:13.5px; color:var(--text-dim); margin:0 0 4px; line-height:1.5; }
+  .changelog-item time{ font-size:12px; color:var(--text-faint); }
+
+  .field{ margin-bottom:18px; max-width:420px; }
+  .field label{ display:block; font-size:13px; color:var(--text-dim); margin-bottom:7px; }
+  .field input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:3px;
+    padding:10px 13px; font-size:14px; color:var(--text); font-family:'Inter', sans-serif;
+  }
+  .field input:disabled{ color:var(--text-faint); }
+  .settings-actions{ display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
+  .status{ font-size:12.5px; color:var(--text-dim); margin:10px 0 0; min-height:1.2em; }
+  .status.err{ color:var(--err); }
+  .status.ok{ color:var(--ok); }
+
+  .auth-gate{
+    max-width:420px; margin:48px auto; text-align:center;
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:32px 28px;
+  }
+  .auth-gate h1{ font-size:22px; margin:0 0 8px; }
+  .auth-gate p{ color:var(--text-dim); font-size:14px; line-height:1.5; margin:0 0 20px; }
+  .auth-gate .btn{ width:100%; margin-bottom:10px; }
+  .auth-gate .btn-save{ margin-bottom:16px; }
+  .auth-divider{ display:flex; align-items:center; gap:10px; color:var(--text-faint); font-size:12px; margin:4px 0 14px; }
+  .auth-divider::before, .auth-divider::after{ content:''; flex:1; height:1px; background:var(--border); }
+  .auth-gate .field{ max-width:none; text-align:left; }
+  .auth-row{ display:flex; gap:8px; }
+
+  .top-links{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  .top-links a{ font-size:13px; color:var(--text-dim); }
+  .top-links a:hover{ color:var(--text); }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width:900px){
+    .stat-grid{ grid-template-columns:1fr 1fr; }
+    .panel-grid{ grid-template-columns:1fr; }
+  }
+  @media (max-width:760px){
+    .shell{ flex-direction:column; }
+    .sidebar{ width:100%; height:auto; position:relative; flex-direction:row; align-items:center; padding:16px 20px; gap:16px; overflow-x:auto; }
+    .logo{ padding:0; }
+    .side-nav{ flex-direction:row; flex:none; }
+    .side-nav a span:not(.hex){ display:none; }
+    .sidebar-foot{ display:none; }
+    .content{ padding:28px 20px 60px; }
+  }
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+
+<div id="authGate" class="auth-gate" hidden>
+  <h1>Sign in to your dashboard</h1>
+  <p>Same account as Marketplace / Submit. See sales, listings, My Stuff, and your Basalt sync key.</p>
+  <button type="button" class="btn btn-save" id="googleBtn">Continue with Google</button>
+  <button type="button" class="btn btn-ghost" id="appleBtn" style="width:100%;margin-top:10px;background:#000;color:#fff;border-color:#000">Continue with Apple</button>
+  <div class="auth-divider"><span>or email</span></div>
+  <div class="field">
+    <label for="authEmail">Email</label>
+    <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com">
+  </div>
+  <div class="field">
+    <label for="authPassword">Password</label>
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="••••••••">
+  </div>
+  <div class="auth-row">
+    <button type="button" class="btn btn-save" id="loginBtn" style="flex:1">Log in</button>
+    <button type="button" class="btn btn-ghost" id="signupBtn" style="flex:1">Sign up</button>
+  </div>
+  <p class="status" id="authStatus"></p>
+  <p style="margin-top:18px;font-size:12px;color:var(--text-faint)">Serve via <code>http://127.0.0.1:3000</code> — not <code>file://</code>.</p>
+</div>
+
+<div class="shell" id="dash" hidden>
+  <aside class="sidebar">
+    <a class="logo" href="index.html">
+      <svg class="logo-mark" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="logoGradD" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ff8a5c"/>
+            <stop offset="1" stop-color="#e8622c"/>
+          </linearGradient>
+        </defs>
+        <polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" fill="none" stroke="url(#logoGradD)" stroke-width="1.4"/>
+        <polygon points="12 6.5, 16.76 9.25, 16.76 14.75, 12 17.5, 7.24 14.75, 7.24 9.25" fill="url(#logoGradD)"/>
+      </svg>
+      basalt
+    </a>
+    <nav class="side-nav">
+      <a href="#overview" class="active"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Overview</span></a>
+      <a href="#usage"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Sales</span></a>
+      <a href="#payouts"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Payouts</span></a>
+      <a href="#products"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>My listings</span></a>
+      <a href="#sync"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Sync</span></a>
+      <a href="#license"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>License</span></a>
+      <a href="#changelog"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Changelog</span></a>
+      <a href="#settings"><svg class="hex" viewBox="0 0 24 24"><polygon points="12 2, 20.66 7, 20.66 17, 12 22, 3.34 17, 3.34 7" stroke-width="2"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="user-chip">
+        <div class="avatar" id="avatar">·</div>
+        <div>
+          <p class="user-name" id="sidebarEmail">…</p>
+          <p class="user-plan">Free · Beta</p>
+        </div>
+      </div>
+      <button type="button" class="logout" id="sidebarLogout">Log out</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="top-links">
+      <a href="marketplace.html">Marketplace</a>
+      <a href="submit.html">Submit</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+    <div class="content-head">
+      <div>
+        <p class="eyebrow">Overview</p>
+        <h1 id="welcomeTitle">Welcome back</h1>
+      </div>
+      <span class="badge-live"><span class="pulse-dot"></span>Beta — every feature unlocked, free</span>
+    </div>
+
+    <div id="bankSetupCard" class="panel" style="display:none;margin-bottom:18px;border-color:rgba(109,206,160,.4)">
+      <div class="panel-head">
+        <h2>Get paid — you keep 90%</h2>
+        <span class="muted">Optional until you want cash out</span>
+      </div>
+      <p class="empty" style="text-align:left;margin:0 0 12px">
+        When someone buys, Basalt holds the money safely. Add your bank once (Stripe’s form — you don’t need an existing Stripe business)
+        and we send your <strong>90%</strong> cut. Buyers can always check out even before you do this.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn btn-save" id="bankSetupCardBtn">Add bank for payouts</button>
+        <a href="#payouts" class="btn btn-sm btn-ghost" style="text-decoration:none">Later → Payouts</a>
+      </div>
+    </div>
+
+    <section id="overview" class="stat-grid">
+      <div class="stat-card">
+        <p class="stat-label">Your earnings (90%)</p>
+        <p class="stat-value" id="statRevenue">—</p>
+        <p class="stat-delta" id="statRevenueHint">After Basalt’s 10% fee</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label">Available to payout</p>
+        <p class="stat-value" id="statAvailable">—</p>
+        <p class="stat-delta" id="statAvailableHint">Earnings minus requests</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label">Orders sold</p>
+        <p class="stat-value" id="statOrders">—</p>
+        <p class="stat-delta" id="statOrdersHint">Sandbox purchases of your listings</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-label">Listings</p>
+        <p class="stat-value" id="statProducts">—</p>
+        <p class="stat-delta" id="statProductsHint">Your submissions</p>
+      </div>
+    </section>
+
+    <section id="usage" class="panel-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Sales, last 7 days</h2>
+          <span class="muted" id="chartTotal">$0</span>
+        </div>
+        <div class="chart" id="salesChart" aria-label="Sales last 7 days"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Recent activity</h2></div>
+        <ul class="activity-list" id="activityList"></ul>
+      </div>
+    </section>
+
+    <section id="payouts" class="panel">
+      <div class="panel-head">
+        <h2>Payouts</h2>
+        <span class="muted">90% artist / 10% Basalt · Stripe Connect</span>
+      </div>
+      <div class="stat-card" style="margin-bottom:16px;text-align:left">
+        <p class="stat-label">Get paid (like eBay)</p>
+        <p class="empty" style="margin:8px 0 12px;text-align:left" id="connectStatusText">
+          One-time bank setup. Until then, Basalt holds sale money for you — buyers can still purchase.
+          After setup: <strong>90%</strong> to you, <strong>10%</strong> to Basalt.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="btn btn-save" id="connectStripeBtn">Set up payouts</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="refreshConnectBtn">Refresh status</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="resetConnectBtn" style="display:none">Start over Connect</button>
+          <span class="status" id="connectStatus"></span>
+        </div>
+        <p class="muted" style="margin:10px 0 0;font-size:12px" id="connectAccountId"></p>
+        <p class="muted" style="margin:8px 0 0;font-size:12px;line-height:1.45" id="connectWhereMoney">
+          As Basalt platform: all card checkouts appear under Stripe → <strong>Payments / Transactions</strong> (main account).
+          Connected accounts only show each seller’s 90% volume — not every buyer email as a separate “store.”
+        </p>
+      </div>
+      <p class="empty" style="margin-bottom:14px;text-align:left">
+        Manual payout requests below are only a <strong>fallback</strong> for older sales from before automatic payouts.
+      </p>
+      <div class="stat-grid" style="margin-bottom:16px">
+        <div class="stat-card">
+          <p class="stat-label">Gross sales</p>
+          <p class="stat-value" id="payoutGross" style="font-size:28px">—</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Basalt fee (10%)</p>
+          <p class="stat-value" id="payoutFee" style="font-size:28px">—</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Your share</p>
+          <p class="stat-value" id="payoutNet" style="font-size:28px">—</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Pending requests</p>
+          <p class="stat-value" id="payoutPending" style="font-size:28px">—</p>
+        </div>
+      </div>
+      <div class="field" style="max-width:280px;margin-bottom:12px">
+        <label for="payoutAmount">Request amount ($)</label>
+        <input id="payoutAmount" type="number" min="1" step="0.01" placeholder="e.g. 10.00">
+      </div>
+      <div class="field" style="max-width:480px;margin-bottom:12px">
+        <label for="payoutNote">Note (PayPal / Venmo / email for beta payout)</label>
+        <input id="payoutNote" type="text" maxlength="200" placeholder="PayPal: you@email.com">
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+        <button type="button" class="btn btn-save" id="requestPayoutBtn">Request payout</button>
+        <span class="status" id="payoutStatus"></span>
+      </div>
+      <ul class="product-list" id="payoutList"></ul>
+    </section>
+
+    <section id="products" class="panel">
+      <div class="panel-head">
+        <h2>My listings</h2>
+        <a class="btn btn-sm btn-ghost" href="submit.html">Submit new</a>
+      </div>
+      <p class="empty" style="margin:0 0 14px;text-align:left">
+        Browse everything you’ve submitted. Hide removes it from the public marketplace; Public puts it back.
+        Delete soft-removes it (sales history stays). Downloads = sandbox purchases of that listing.
+      </p>
+      <p class="status" id="listingsStatus" style="margin-bottom:10px"></p>
+      <ul class="product-list" id="productList"></ul>
+    </section>
+
+    <section id="sync" class="panel">
+      <div class="panel-head"><h2>Basalt sync</h2></div>
+      <p class="empty" style="margin-bottom:12px">Paste this sync key in Cursor → Library → My Stuff (Advanced) if auto sign-in isn’t available. Same as your marketplace user id.</p>
+      <div class="sync-key-box">
+        <code id="syncKey">—</code>
+        <button type="button" class="btn btn-sm btn-ghost" id="copySyncKey">Copy</button>
+      </div>
+      <ul class="device-list" style="margin-top:8px">
+        <li>
+          <div>
+            <p class="device-name">This browser</p>
+            <p class="device-meta" id="deviceMeta">Web dashboard</p>
+          </div>
+          <span class="device-status"><span class="pulse-dot"></span>Signed in</span>
+        </li>
+        <li>
+          <div>
+            <p class="device-name">My Stuff (extension)</p>
+            <p class="device-meta" id="myStuffMeta">Purchases you own</p>
+          </div>
+          <span class="device-status" id="myStuffStatus">—</span>
+        </li>
+      </ul>
+    </section>
+
+    <section id="license" class="panel">
+      <div class="license-row">
+        <div>
+          <p class="plan-name">Free — Beta</p>
+          <p class="plan-desc">Every Basalt feature is unlocked at no cost while it's in beta. When a paid tier ships, you'll manage your plan and billing right here — and get plenty of notice first.</p>
+        </div>
+        <button class="btn" disabled>Upgrade — coming soon</button>
+      </div>
+    </section>
+
+    <section id="changelog" class="panel">
+      <div class="panel-head"><h2>Changelog</h2></div>
+      <ul class="changelog-list" id="changelogList"></ul>
+    </section>
+
+    <section id="settings" class="panel">
+      <div class="panel-head"><h2>Account</h2></div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" disabled>
+      </div>
+      <div class="field">
+        <label for="displayName">Display name</label>
+        <input id="displayName" type="text" placeholder="Add a name" autocomplete="nickname">
+      </div>
+      <div class="settings-actions">
+        <button class="btn btn-save" type="button" id="saveSettings">Save changes</button>
+        <button class="btn btn-ghost" type="button" id="settingsLogout">Log out</button>
+      </div>
+      <p class="status" id="settingsStatus"></p>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-client.js';
+  import { sellerNetFromRow, PLATFORM_FEE_BPS } from './marketplace-fees.js';
+
+  let identifyWebUser = () => {};
+  let resetWebUser = () => {};
+  let captureWeb = () => {};
+  try {
+    const ph = await import('./posthog-web.js');
+    identifyWebUser = ph.identifyWebUser || identifyWebUser;
+    resetWebUser = ph.resetWebUser || resetWebUser;
+    captureWeb = ph.captureWeb || captureWeb;
+  } catch (err) {
+    console.warn('[dashboard] PostHog unavailable — dashboard still works', err?.message || err);
+  }
+
+  async function callEdgeFn(name, body, timeoutMs) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Sign in required');
+    const ms = typeof timeoutMs === 'number' ? timeoutMs : 25000;
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+    let res;
+    try {
+      res = await fetch(SUPABASE_URL + '/functions/v1/' + name, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify(body || {}),
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error(name + ' timed out — check Supabase function deploy / network');
+      }
+      throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || name + ' failed (' + res.status + ')');
+    }
+    return json;
+  }
+
+  function setConnectUi(status) {
+    const text = document.getElementById('connectStatusText');
+    const acctEl = document.getElementById('connectAccountId');
+    const btn = document.getElementById('connectStripeBtn');
+    const resetBtn = document.getElementById('resetConnectBtn');
+    if (!text) return;
+    if (resetBtn) {
+      resetBtn.style.display =
+        status && status.linked && !status.chargesEnabled ? 'inline-flex' : 'none';
+    }
+    if (!status || !status.linked) {
+      text.innerHTML =
+        'One-time bank setup. Until then, Basalt holds sale money for you — buyers can still purchase. After setup: <strong>90%</strong> to you, <strong>10%</strong> to Basalt.';
+      if (acctEl) acctEl.textContent = '';
+      if (btn) btn.textContent = 'Add bank for payouts';
+      return;
+    }
+    if (status.chargesEnabled) {
+      text.innerHTML =
+        '<strong style="color:#6dcea0">Payouts ready.</strong> Stripe says this account can receive transfers (Enabled + payouts). Match the account id below — ignore other Restricted rows.';
+      if (btn) btn.textContent = 'Update bank details';
+    } else {
+      const why =
+        status.disabledReason
+          ? ' Stripe reason: ' + status.disabledReason + '.'
+          : status.requirementsCurrentlyDue
+            ? ' Stripe still needs ' + status.requirementsCurrentlyDue + ' field(s).'
+            : status.restricted
+              ? ' Stripe shows Restricted until onboarding is finished.'
+              : '';
+      text.innerHTML =
+        '<strong style="color:#e8a07a">NOT ready for auto-split.</strong> Dashboard “earnings” is only our ledger until Connect is <em>Enabled</em> with payouts (Cutify shows Restricted = money stays on Basalt).' +
+        why +
+        ' Use Continue setup or Start over.';
+      if (btn) btn.textContent = 'Continue setup';
+    }
+    if (acctEl) {
+      const id = status.accountId || '';
+      const tr = status.transfers != null ? String(status.transfers) : '?';
+      const due =
+        status.requirementsCurrentlyDue != null
+          ? ' · Stripe still needs ' + status.requirementsCurrentlyDue + ' field(s)'
+          : '';
+      acctEl.textContent = id
+        ? 'Your Connect account: ' +
+          id +
+          ' · transfers=' +
+          tr +
+          due +
+          (status.chargesEnabled ? ' · auto-split ON' : ' · auto-split OFF (held)')
+        : '';
+    }
+  }
+
+  function updateBankSetupCard(hasListings, connectStatus) {
+    const card = document.getElementById('bankSetupCard');
+    if (!card) return;
+    const ready = !!(connectStatus && connectStatus.chargesEnabled);
+    card.style.display = hasListings && !ready ? 'block' : 'none';
+  }
+
+  async function refreshConnectStatus() {
+    const statusEl = document.getElementById('connectStatus');
+    const setSt = (msg, kind) => {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    };
+    try {
+      setSt('Checking Stripe…');
+      const st = await callEdgeFn('stripe-connect-status', {});
+      setConnectUi(st);
+      let msg = st.chargesEnabled
+        ? 'Ready for automatic payouts'
+        : st.linked
+          ? 'Finish onboarding'
+          : 'Not connected';
+      if (st.chargesEnabled && st.release && st.release.released > 0) {
+        msg =
+          'Ready — released ' +
+          st.release.released +
+          ' held sale(s) to your Connect account';
+      } else if (st.chargesEnabled && st.release && st.release.failed > 0) {
+        msg =
+          'Ready — but ' +
+          st.release.failed +
+          ' held transfer(s) failed (see console / try refresh)';
+        setSt(msg, 'err');
+        return st;
+      }
+      setSt(msg, st.chargesEnabled ? 'ok' : '');
+      return st;
+    } catch (err) {
+      setSt(
+        (err?.message || 'Could not load Connect status') +
+          (/seller_stripe_accounts|schema|relation|404/i.test(err?.message || '')
+            ? ' — run 20260801120000_stripe_connect.sql + deploy stripe-connect-* functions'
+            : ''),
+        'err'
+      );
+      return null;
+    }
+  }
+
+  async function startConnectOnboard(opts) {
+    const reset = !!(opts && opts.reset);
+    const statusEl = document.getElementById('connectStatus');
+    const setSt = (msg, kind) => {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    };
+    try {
+      if (reset) {
+        if (
+          !confirm(
+            'Start over with a new Stripe Connect account? Only use this if setup is stuck incomplete ($0 / Restricted).'
+          )
+        ) {
+          return;
+        }
+      }
+      setSt(reset ? 'Creating new Connect account…' : 'Opening Stripe…');
+      const here = location.href.split('#')[0].split('?')[0];
+      const returnUrl = here + '?connect=return#payouts';
+      const refreshUrl = here + '?connect=refresh#payouts';
+      const created = await callEdgeFn('stripe-connect-onboard', {
+        returnUrl,
+        refreshUrl,
+        reset: reset || undefined,
+      });
+      if (created.alreadyReady) {
+        setConnectUi(created);
+        setSt('Stripe Connect already ready', 'ok');
+        await refreshConnectStatus();
+        return;
+      }
+      if (!created.url) throw new Error('No Stripe onboarding URL');
+      window.location.href = created.url;
+    } catch (err) {
+      setSt(err?.message || 'Connect onboarding failed', 'err');
+    }
+  }
+
+  const authGate = document.getElementById('authGate');
+  const dash = document.getElementById('dash');
+  const authStatus = document.getElementById('authStatus');
+  const settingsStatus = document.getElementById('settingsStatus');
+
+  const CHANGELOG = [
+    {
+      tag: 'v1.12.29',
+      title: 'Skin catalog popover',
+      body: 'Skin opens a floating catalog with large thumbs for My Stuff / Buttons / Panels — no more cramped rail strip.',
+      date: 'Jul 30, 2026',
+    },
+    {
+      tag: 'v1.12.27',
+      title: 'Soft Fade card layout fix',
+      body: 'PremiumSkinLayer keeps card children as flex siblings so Soft Fade list cards don’t stack wrong.',
+      date: 'Jul 30, 2026',
+    },
+    {
+      tag: 'v1.12.25',
+      title: 'Glass apply on SpecRow / panels',
+      body: 'Button glass on non-Pressable hosts remaps to liquid-glass PremiumPanel so sheet rows actually change.',
+      date: 'Jul 30, 2026',
+    },
+  ];
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s ?? '';
+    return d.innerHTML;
+  }
+
+  function money(cents) {
+    return '$' + (Number(cents || 0) / 100).toFixed(2);
+  }
+
+  function initials(email) {
+    const s = String(email || '').trim();
+    if (!s) return '?';
+    const local = s.split('@')[0] || s;
+    return local.slice(0, 2).toUpperCase();
+  }
+
+  function dayKey(d) {
+    const x = new Date(d);
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  }
+
+  function lastNDays(n) {
+    const out = [];
+    const now = new Date();
+    now.setHours(12, 0, 0, 0);
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      out.push(dayKey(d));
+    }
+    return out;
+  }
+
+  function relativeTime(iso) {
+    const t = new Date(iso).getTime();
+    if (!isFinite(t)) return '';
+    const sec = Math.round((Date.now() - t) / 1000);
+    if (sec < 60) return 'just now';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+    if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+    if (sec < 86400 * 2) return 'Yesterday';
+    return Math.floor(sec / 86400) + 'd ago';
+  }
+
+  function weekdayLabel(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' });
+  }
+
+  function setAuthError(msg) {
+    authStatus.textContent = msg || '';
+    authStatus.className = msg ? 'status err' : 'status';
+  }
+
+  async function signInGoogle() {
+    if (location.protocol === 'file:') {
+      setAuthError('Use http://127.0.0.1:3000 — not file://');
+      return;
+    }
+    authStatus.textContent = 'Redirecting…';
+    authStatus.className = 'status';
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href.split('#')[0] },
+    });
+    if (error) setAuthError(error.message);
+  }
+
+  async function signInApple() {
+    if (location.protocol === 'file:') {
+      setAuthError('Use http://127.0.0.1:3000 — not file://');
+      return;
+    }
+    authStatus.textContent = 'Redirecting to Apple…';
+    authStatus.className = 'status';
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: window.location.href.split('#')[0] },
+    });
+    if (error) setAuthError(error.message);
+  }
+
+  async function signInEmail(mode) {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    if (!email || !password) {
+      setAuthError('Email and password required');
+      return;
+    }
+    authStatus.textContent = mode === 'signup' ? 'Creating account…' : 'Signing in…';
+    authStatus.className = 'status';
+    const result =
+      mode === 'signup'
+        ? await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signInWithPassword({ email, password });
+    if (result.error) {
+      setAuthError(result.error.message);
+      return;
+    }
+    authStatus.textContent = mode === 'signup' ? 'Check email if confirmation is required, or you’re in.' : 'Signed in';
+    authStatus.className = 'status ok';
+    boot();
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    resetWebUser();
+    boot();
+  }
+
+  function renderChart(sales) {
+    const el = document.getElementById('salesChart');
+    const days = lastNDays(7);
+    const totals = Object.fromEntries(days.map((d) => [d, 0]));
+    (sales || []).forEach((p) => {
+      const k = dayKey(p.created_at);
+      if (k in totals) totals[k] += Number(p.amount_cents || 0);
+    });
+    const values = days.map((d) => totals[d]);
+    const max = Math.max(100, ...values);
+    const sum = values.reduce((a, b) => a + b, 0);
+    document.getElementById('chartTotal').textContent = money(sum) + ' · 7d';
+    el.innerHTML = days
+      .map((d) => {
+        const v = totals[d];
+        const pct = Math.max(v > 0 ? 8 : 2, Math.round((v / max) * 100));
+        return (
+          '<div class="bar-col" title="' +
+          esc(weekdayLabel(d) + ': ' + money(v)) +
+          '">' +
+          '<div class="bar' +
+          (v ? '' : ' is-empty') +
+          '" style="height:' +
+          pct +
+          '%"></div>' +
+          '<span class="bar-label">' +
+          esc(weekdayLabel(d)) +
+          '</span></div>'
+        );
+      })
+      .join('');
+  }
+
+  function marketItemHref(itemId) {
+    if (!itemId) return 'marketplace.html';
+    return 'marketplace.html?item=' + encodeURIComponent(String(itemId));
+  }
+
+  function renderActivity(sales, buys) {
+    const el = document.getElementById('activityList');
+    const events = [];
+    (sales || []).forEach((p) => {
+      const name = esc(p.item_name || 'item');
+      const link = p.item_id
+        ? '<a class="file" href="' + marketItemHref(p.item_id) + '">' + name + '</a>'
+        : '<span class="file">' + name + '</span>';
+      events.push({
+        kind: 'sale',
+        at: p.created_at,
+        html:
+          'Sold ' +
+          link +
+          ' · ' +
+          money(p.amount_cents) +
+          ' gross / ' +
+          money(sellerNetFromRow(p)) +
+          ' yours · ' +
+          esc(p.buyer_email || (p.buyer_id || '').slice(0, 8) + '…'),
+      });
+    });
+    (buys || []).forEach((p) => {
+      const name = esc(p.item_name || 'item');
+      const link = p.item_id
+        ? '<a class="file" href="' + marketItemHref(p.item_id) + '">' + name + '</a>'
+        : '<span class="file">' + name + '</span>';
+      events.push({
+        kind: 'buy',
+        at: p.created_at,
+        html: 'Bought ' + link + ' · ' + money(p.amount_cents),
+      });
+    });
+    events.sort((a, b) => new Date(b.at) - new Date(a.at));
+    const top = events.slice(0, 8);
+    if (!top.length) {
+      el.innerHTML = '<li><p class="empty">No sandbox activity yet. Buy on Marketplace or wait for a sale on your listing.</p></li>';
+      return;
+    }
+    el.innerHTML = top
+      .map(
+        (e) =>
+          '<li><span class="dot ' +
+          e.kind +
+          '"></span><div><p>' +
+          e.html +
+          '</p><time>' +
+          esc(relativeTime(e.at)) +
+          '</time></div></li>'
+      )
+      .join('');
+  }
+
+  let listingsCache = [];
+
+  function listingBadge(r) {
+    if (r.visibility === 'deleted') return '<span class="badge deleted">deleted</span>';
+    if (r.visibility === 'hidden') return '<span class="badge hidden">hidden</span>';
+    if (r.status === 'pending') return '<span class="badge pending">pending</span>';
+    if (r.status === 'approved') return '<span class="badge">approved</span>';
+    if (r.status === 'rejected') return '<span class="badge deleted">rejected</span>';
+    return '<span class="badge">' + esc(r.status || 'live') + '</span>';
+  }
+
+  function renderProducts(rows) {
+    listingsCache = rows || [];
+    const el = document.getElementById('productList');
+    const active = listingsCache.filter((r) => r.visibility !== 'deleted');
+    if (!active.length) {
+      el.innerHTML =
+        '<li><p class="empty">No listings yet. <a href="submit.html" style="color:var(--accent)">Submit a component</a>.</p></li>';
+      return;
+    }
+    el.innerHTML = active
+      .map((r) => {
+        const downloads = Number(r.download_count || 0);
+        const vis = r.visibility || 'public';
+        const canToggle = vis === 'public' || vis === 'hidden';
+        return (
+          '<li data-listing-id="' +
+          esc(r.id) +
+          '"><div class="listing-top"><div><p class="product-name"><a href="' +
+          marketItemHref(r.id) +
+          '">' +
+          esc(r.name) +
+          '</a></p><p class="product-meta">$' +
+          Number(r.price || 0).toFixed(2) +
+          ' · ' +
+          esc(r.category || 'component') +
+          '</p><p class="product-downloads">' +
+          downloads +
+          ' download' +
+          (downloads === 1 ? '' : 's') +
+          '</p></div>' +
+          listingBadge(r) +
+          '</div><div class="listing-actions btn-rail">' +
+          (canToggle && vis === 'public'
+            ? '<button type="button" class="btn btn-sm btn-ghost" data-act="hide">Hide</button>'
+            : '') +
+          (canToggle && vis === 'hidden'
+            ? '<button type="button" class="btn btn-sm btn-ghost" data-act="public">Make public</button>'
+            : '') +
+          (vis !== 'deleted'
+            ? '<button type="button" class="btn btn-sm btn-ghost" data-act="delete" style="color:#ff8a8a">Delete</button>'
+            : '') +
+          '<a class="btn btn-sm btn-ghost" href="' +
+          marketItemHref(r.id) +
+          '">View on market</a>' +
+          '</div></li>'
+        );
+      })
+      .join('');
+
+    el.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const li = btn.closest('[data-listing-id]');
+        const id = li && li.getAttribute('data-listing-id');
+        const act = btn.getAttribute('data-act');
+        if (id && act) updateListingVisibility(id, act);
+      });
+    });
+  }
+
+  async function updateListingVisibility(id, act) {
+    const statusEl = document.getElementById('listingsStatus');
+    const setSt = (msg, kind) => {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    };
+    if (!dashUser) return;
+    let visibility = 'public';
+    if (act === 'hide') visibility = 'hidden';
+    if (act === 'delete') {
+      if (!confirm('Delete this listing from the marketplace? Past sales stay in your stats.')) return;
+      visibility = 'deleted';
+    }
+    if (act === 'public') visibility = 'public';
+    setSt('Updating…');
+    const { error } = await supabase
+      .from('submissions')
+      .update({ visibility })
+      .eq('id', id)
+      .eq('artist_id', dashUser.id);
+    if (error) {
+      setSt(
+        error.message +
+          (/visibility|schema|column/i.test(error.message || '')
+            ? ' — run supabase-migrations-20260731020000_listing_visibility.sql'
+            : ''),
+        'err'
+      );
+      return;
+    }
+    setSt(
+      visibility === 'deleted'
+        ? 'Listing deleted.'
+        : visibility === 'hidden'
+          ? 'Listing hidden from marketplace.'
+          : 'Listing is public again.',
+      'ok'
+    );
+    captureWeb('web_listing_visibility', { visibility });
+    await loadDashboard(dashUser);
+  }
+
+  function renderChangelog() {
+    document.getElementById('changelogList').innerHTML = CHANGELOG.map(
+      (c) =>
+        '<li class="changelog-item"><span class="changelog-tag">' +
+        esc(c.tag) +
+        '</span><div><h3>' +
+        esc(c.title) +
+        '</h3><p>' +
+        esc(c.body) +
+        '</p><time>' +
+        esc(c.date) +
+        '</time></div></li>'
+    ).join('');
+  }
+
+  function fillUserChrome(user) {
+    const email = user.email || user.id;
+    const name = (user.user_metadata && user.user_metadata.full_name) || '';
+    document.getElementById('sidebarEmail').textContent = email;
+    document.getElementById('avatar').textContent = initials(email);
+    document.getElementById('email').value = email;
+    document.getElementById('displayName').value = name;
+    document.getElementById('syncKey').textContent = user.id;
+    document.getElementById('deviceMeta').textContent = email;
+    const first = name || (email.split('@')[0] || 'there');
+    document.getElementById('welcomeTitle').textContent = 'Welcome back, ' + first;
+  }
+
+  let dashUser = null;
+  let lastAvailableCents = 0;
+
+  function platformFeeFromRow(row) {
+    if (!row) return 0;
+    if (row.platform_fee_cents != null && row.platform_fee_cents !== '') {
+      return Math.max(0, Number(row.platform_fee_cents) || 0);
+    }
+    const gross = Math.max(0, Number(row.amount_cents) || 0);
+    return gross - sellerNetFromRow(row, PLATFORM_FEE_BPS);
+  }
+
+  function renderPayouts(requests, availableCents) {
+    const list = document.getElementById('payoutList');
+    lastAvailableCents = availableCents;
+    const amtInput = document.getElementById('payoutAmount');
+    if (amtInput && !amtInput.value) {
+      amtInput.placeholder = availableCents > 0 ? (availableCents / 100).toFixed(2) : '0.00';
+    }
+    if (!requests.length) {
+      list.innerHTML = '<li class="empty" style="list-style:none;padding:8px 0">No payout requests yet.</li>';
+      return;
+    }
+    list.innerHTML = requests
+      .map((r) => {
+        const st = String(r.status || 'pending');
+        return (
+          '<li><div><p class="name">' +
+          money(r.amount_cents) +
+          ' · ' +
+          esc(st) +
+          '</p><p class="meta">' +
+          esc(r.artist_note || 'No note') +
+          ' · ' +
+          esc(r.created_at ? new Date(r.created_at).toLocaleString() : '') +
+          '</p></div></li>'
+        );
+      })
+      .join('');
+  }
+
+  async function requestPayout() {
+    const statusEl = document.getElementById('payoutStatus');
+    const setSt = (msg, kind) => {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    };
+    if (!dashUser) {
+      setSt('Sign in first.', 'err');
+      return;
+    }
+    const dollars = parseFloat(document.getElementById('payoutAmount').value);
+    const note = document.getElementById('payoutNote').value.trim();
+    if (!dollars || dollars <= 0) {
+      setSt('Enter an amount greater than 0.', 'err');
+      return;
+    }
+    const amountCents = Math.round(dollars * 100);
+    if (amountCents > lastAvailableCents) {
+      setSt(
+        'Only ' + money(lastAvailableCents) + ' available. Lower the amount or wait for more sales.',
+        'err'
+      );
+      return;
+    }
+    if (amountCents < 100) {
+      setSt('Minimum payout is $1.00 for beta validation.', 'err');
+      return;
+    }
+    setSt('Submitting…');
+    const { error } = await supabase.from('payout_requests').insert({
+      seller_id: dashUser.id,
+      amount_cents: amountCents,
+      currency: 'usd',
+      status: 'pending',
+      payout_method: 'manual',
+      artist_note: note || null,
+    });
+    if (error) {
+      setSt(
+        error.message +
+          (/payout_requests|schema|relation/i.test(error.message || '')
+            ? ' — run supabase-migrations-20260731010000_payout_split.sql in Supabase SQL'
+            : ''),
+        'err'
+      );
+      return;
+    }
+    setSt('Payout requested — we’ll mark it paid in beta once sent.', 'ok');
+    captureWeb('web_payout_requested', { amount_cents: amountCents });
+    document.getElementById('payoutAmount').value = '';
+    await loadDashboard(dashUser);
+  }
+
+  async function loadDashboard(user) {
+    dashUser = user;
+    fillUserChrome(user);
+    renderChangelog();
+
+    const [productsRes, salesRes, buysRes, payoutsRes] = await Promise.all([
+      supabase
+        .from('submissions')
+        .select('id, name, price, status, category, created_at, visibility, description')
+        .eq('artist_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('purchases')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('purchases')
+        .select('*')
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('payout_requests')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    let products = productsRes.error ? [] : productsRes.data || [];
+    // Older DB without visibility — retry without it
+    if (productsRes.error && /visibility/i.test(productsRes.error.message || '')) {
+      const retry = await supabase
+        .from('submissions')
+        .select('id, name, price, status, category, created_at, description')
+        .eq('artist_id', user.id)
+        .order('created_at', { ascending: false });
+      products = (retry.data || []).map((r) => ({ ...r, visibility: 'public' }));
+    }
+    const sales = salesRes.error ? [] : salesRes.data || [];
+    const buys = buysRes.error ? [] : buysRes.data || [];
+    const payouts = payoutsRes.error ? [] : payoutsRes.data || [];
+
+    if (productsRes.error) console.warn('products', productsRes.error.message);
+    if (salesRes.error) console.warn('sales', salesRes.error.message);
+    if (buysRes.error) console.warn('buys', buysRes.error.message);
+    if (payoutsRes.error) console.warn('payouts', payoutsRes.error.message);
+
+    const grossCents = sales.reduce((n, p) => n + Number(p.amount_cents || 0), 0);
+    const netCents = sales.reduce((n, p) => n + sellerNetFromRow(p), 0);
+    const feeCents = sales.reduce((n, p) => n + platformFeeFromRow(p), 0);
+    const reservedCents = payouts
+      .filter((r) => r.status === 'pending' || r.status === 'paid')
+      .reduce((n, r) => n + Number(r.amount_cents || 0), 0);
+    const availableCents = Math.max(0, netCents - reservedCents);
+    const pendingReqCents = payouts
+      .filter((r) => r.status === 'pending')
+      .reduce((n, r) => n + Number(r.amount_cents || 0), 0);
+    const buyerEmails = new Set(sales.map((p) => p.buyer_email || p.buyer_id));
+
+    document.getElementById('statRevenue').textContent = money(netCents);
+    document.getElementById('statRevenueHint').textContent =
+      money(grossCents) +
+      ' gross · ' +
+      buyerEmails.size +
+      ' buyer' +
+      (buyerEmails.size === 1 ? '' : 's');
+    document.getElementById('statAvailable').textContent = money(availableCents);
+    document.getElementById('statAvailableHint').textContent = payoutsRes.error
+      ? 'Run payout migration to enable requests'
+      : pendingReqCents
+        ? money(pendingReqCents) + ' in pending requests'
+        : 'Ready to request';
+    document.getElementById('statOrders').textContent = String(sales.length);
+    document.getElementById('statOrdersHint').textContent = salesRes.error
+      ? 'Couldn’t load sales — check purchases migration'
+      : 'Sandbox purchases of your listings';
+    document.getElementById('statProducts').textContent = String(
+      products.filter((p) => p.visibility !== 'deleted').length
+    );
+    document.getElementById('statProductsHint').textContent = products.length
+      ? products.filter((p) => p.status === 'pending' && p.visibility !== 'deleted').length + ' pending review'
+      : 'Submit from Marketplace → Submit';
+
+    document.getElementById('payoutGross').textContent = money(grossCents);
+    document.getElementById('payoutFee').textContent = money(feeCents);
+    document.getElementById('payoutNet').textContent = money(netCents);
+    document.getElementById('payoutPending').textContent = money(pendingReqCents);
+
+    document.getElementById('myStuffMeta').textContent = buys.length
+      ? buys.length + ' owned purchase' + (buys.length === 1 ? '' : 's')
+      : 'No purchases yet';
+    document.getElementById('myStuffStatus').textContent = buys.length ? 'Ready in Library' : 'Empty';
+
+    const downloadMap = {};
+    sales.forEach((p) => {
+      const id = String(p.item_id || '');
+      if (!id) return;
+      downloadMap[id] = (downloadMap[id] || 0) + 1;
+    });
+    const productsWithCounts = products.map((r) => ({
+      ...r,
+      visibility: r.visibility || 'public',
+      download_count: downloadMap[String(r.id)] || 0,
+    }));
+
+    renderChart(sales);
+    renderActivity(sales, buys);
+    renderProducts(productsWithCounts);
+    renderPayouts(payouts, availableCents);
+    focusListingFromQuery();
+    return {
+      hasListings: products.filter((p) => p.visibility !== 'deleted').length > 0,
+      availableCents,
+    };
+  }
+
+  function focusListingFromQuery() {
+    const params = new URLSearchParams(location.search);
+    const listingId = params.get('listing');
+    if (!listingId) return;
+    const products = document.getElementById('products');
+    if (products) {
+      products.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const li = Array.from(document.querySelectorAll('#productList li[data-listing-id]')).find(
+      (el) => el.getAttribute('data-listing-id') === listingId
+    );
+    if (li) {
+      li.classList.add('is-flash');
+      li.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => li.classList.remove('is-flash'), 3200);
+    }
+    // Clean query so refresh doesn't keep flashing
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('listing');
+      history.replaceState({}, '', url.pathname + url.search + (url.hash || '#products'));
+    } catch (_) {}
+  }
+
+  async function saveSettings() {
+    const name = document.getElementById('displayName').value.trim();
+    settingsStatus.textContent = 'Saving…';
+    settingsStatus.className = 'status';
+    const { data, error } = await supabase.auth.updateUser({
+      data: { full_name: name },
+    });
+    if (error) {
+      settingsStatus.textContent = error.message;
+      settingsStatus.className = 'status err';
+      return;
+    }
+    settingsStatus.textContent = 'Saved';
+    settingsStatus.className = 'status ok';
+    if (data.user) fillUserChrome(data.user);
+  }
+
+  document.getElementById('googleBtn').addEventListener('click', () => signInGoogle());
+  document.getElementById('appleBtn')?.addEventListener('click', () => signInApple());
+  document.getElementById('loginBtn').addEventListener('click', () => signInEmail('login'));
+  document.getElementById('signupBtn').addEventListener('click', () => signInEmail('signup'));
+  document.getElementById('sidebarLogout').addEventListener('click', () => signOut());
+  document.getElementById('settingsLogout').addEventListener('click', () => signOut());
+  document.getElementById('saveSettings').addEventListener('click', () => saveSettings());
+  document.getElementById('requestPayoutBtn')?.addEventListener('click', () => requestPayout());
+  document.getElementById('connectStripeBtn')?.addEventListener('click', () => startConnectOnboard());
+  document.getElementById('bankSetupCardBtn')?.addEventListener('click', () => startConnectOnboard());
+  document.getElementById('resetConnectBtn')?.addEventListener('click', () =>
+    startConnectOnboard({ reset: true })
+  );
+  document.getElementById('refreshConnectBtn')?.addEventListener('click', () => refreshConnectStatus());
+  document.getElementById('copySyncKey').addEventListener('click', async () => {
+    const key = document.getElementById('syncKey').textContent.trim();
+    try {
+      await navigator.clipboard.writeText(key);
+      document.getElementById('copySyncKey').textContent = 'Copied';
+      setTimeout(() => {
+        document.getElementById('copySyncKey').textContent = 'Copy';
+      }, 1200);
+    } catch {
+      document.getElementById('copySyncKey').textContent = 'Failed';
+    }
+  });
+
+  // Sidebar section highlight
+  (function () {
+    const links = Array.from(document.querySelectorAll('.side-nav a'));
+    const sections = links.map((l) => document.querySelector(l.getAttribute('href')));
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const idx = sections.indexOf(entry.target);
+            if (entry.isIntersecting && idx > -1) {
+              links.forEach((l) => l.classList.remove('active'));
+              links[idx].classList.add('active');
+            }
+          });
+        },
+        { rootMargin: '-40% 0px -50% 0px' }
+      );
+      sections.forEach((s) => {
+        if (s) io.observe(s);
+      });
+    }
+  })();
+
+  async function boot() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      authGate.hidden = false;
+      dash.hidden = true;
+      return;
+    }
+    authGate.hidden = true;
+    dash.hidden = false;
+    identifyWebUser(session.user);
+    captureWeb('web_dashboard_viewed');
+    const dashInfo = await loadDashboard(session.user);
+    const connectSt = await refreshConnectStatus();
+    updateBankSetupCard(!!dashInfo?.hasListings, connectSt);
+    if (dashInfo?.availableCents > 0 && !(connectSt && connectSt.chargesEnabled)) {
+      const hint = document.getElementById('statAvailableHint');
+      if (hint) hint.textContent = 'Held by Basalt — add a bank to cash out';
+    }
+    const q = new URLSearchParams(location.search);
+    const connectQ = q.get('connect');
+    if (connectQ === 'return' || connectQ === 'refresh' || connectQ === 'nudge') {
+      history.replaceState({}, '', location.pathname + (location.hash || '#payouts'));
+      const st2 = await refreshConnectStatus();
+      updateBankSetupCard(!!dashInfo?.hasListings, st2);
+      if (connectQ === 'nudge') {
+        const statusEl = document.getElementById('connectStatus');
+        if (statusEl) {
+          statusEl.textContent = 'Add a bank when you’re ready — sales still work without it';
+          statusEl.className = 'status';
+        }
+        document.getElementById('bankSetupCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }
+
+  boot();
+  supabase.auth.onAuthStateChange(() => boot());
+</script>
+
+</body>
+</html>

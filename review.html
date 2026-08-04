@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Review Queue — Basalt Library</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="validator.js"></script>
+<link rel="stylesheet" href="basalt-ui.css">
+<style>
+  :root {
+    --bg: #0b0b0b;
+    --surface: #141414;
+    --surface-raised: #1c1c1c;
+    --border: #262626;
+    --orange: #ff6a00;
+    --orange-dim: #7a3a12;
+    --green: #6fd67f;
+    --red: #ff6a6a;
+    --text: #f2f2f2;
+    --text-muted: #8a8a8a;
+    --mono: "SF Mono", "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+  .shell { max-width: 760px; margin: 0 auto; padding: 64px 24px 100px; }
+
+  .mark { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 40px; }
+  .mark-left { display: flex; align-items: center; gap: 10px; }
+  .mark-chip { width: 10px; height: 24px; background: var(--orange); border-radius: 2px; }
+  .mark-text { font-family: var(--mono); font-size: 13px; letter-spacing: 3px; color: var(--text-muted); text-transform: uppercase; }
+  .settings-link {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.5px; color: var(--text-muted);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 2px; padding: 6px 12px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .settings-link:hover { color: var(--text); border-color: #3a3a3a; }
+
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 8px; }
+  .sub { color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin: 0 0 36px; max-width: 52ch; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 28px; }
+  .panel + .panel { margin-top: 16px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange); margin: 0 0 16px; }
+
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+  input[type="email"] {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); padding: 11px 12px; font-size: 14px; font-family: inherit; outline: none;
+  }
+  input:focus { border-color: var(--orange); }
+
+  button {
+    background: var(--orange); color: #0b0b0b; border: none; border-radius: 3px;
+    padding: 11px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { background: var(--orange-dim); color: #7a7a7a; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.danger { background: transparent; border: 1px solid rgba(255,106,106,0.4); color: var(--red); }
+  button.full { width: 100%; margin-top: 18px; }
+
+  .status { font-family: var(--mono); font-size: 12px; margin-top: 14px; line-height: 1.6; display: none; }
+  .status.show { display: block; }
+  .status.ok { color: var(--green); }
+  .status.err { color: var(--red); }
+  .status.pending { color: var(--text-muted); }
+
+  #authView, #deniedView, #queueView { display: none; }
+  #authView.show, #deniedView.show, #queueView.show { display: block; }
+
+  .submission-card { margin-bottom: 16px; }
+  .sub-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .sub-title { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+  .sub-meta { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+  .price-tag { font-family: var(--mono); font-size: 15px; color: var(--orange); white-space: nowrap; }
+  .sub-desc { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 10px 0 16px; }
+
+  .inspect-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 14px; margin-top: 12px;
+  }
+  .check-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; margin-bottom: 6px; }
+  .check-row.pass { color: var(--green); }
+  .check-row.fail { color: var(--red); }
+  .check-row.warn { color: var(--orange); }
+  .check-row.info { color: var(--text-muted); }
+  pre.file-preview {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: 2px;
+    padding: 12px; font-size: 11.5px; line-height: 1.5; color: var(--text-muted);
+    max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 10px 0 0;
+  }
+
+  .action-row { display: flex; gap: 10px; margin-top: 18px; }
+  .action-row.btn-rail { gap: 0; width: 100%; }
+  .action-row.btn-rail button { flex: 1; }
+  .action-row button { flex: 1; margin-top: 0; }
+
+  .empty { text-align: center; color: var(--text-muted); font-size: 14px; padding: 40px 0; }
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+
+<div class="shell">
+  <div class="mark">
+    <div class="mark-left">
+      <div class="mark-chip"></div>
+      <div class="mark-text">Basalt Library · Review</div>
+    </div>
+    <a class="settings-link" href="settings.html">Settings</a>
+  </div>
+
+  <!-- AUTH -->
+  <div id="authView" class="panel">
+    <p class="eyebrow">Sign in</p>
+    <button type="button" id="googleBtn" class="full" style="background:#fff;color:#111;margin-bottom:10px;">Continue with Google</button>
+    <button type="button" id="appleBtn" class="full" style="background:#000;color:#fff;margin-bottom:14px;border-color:#000;">Continue with Apple</button>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+    <label for="password" style="margin-top:14px">Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+    <p class="hint">Email + password works on a local server. Magic link needs your page URL allowlisted in Supabase Auth.</p>
+    <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+      <button type="button" id="loginBtn" class="full" style="margin-top:0; flex:1;">Log in</button>
+      <button type="button" id="signupBtn" class="ghost full" style="margin-top:0; flex:1;">Sign up</button>
+    </div>
+    <button type="button" id="forgotBtn" class="ghost full">Forgot / change password</button>
+    <button type="button" id="sendLinkBtn" class="ghost full">Or send magic link</button>
+    <div id="authStatus" class="status"></div>
+  </div>
+
+  <!-- NOT ADMIN -->
+  <div id="deniedView" class="panel">
+    <p class="eyebrow">Not authorized</p>
+    <p class="sub-desc">This account isn't on the admin list, so it can't review submissions.</p>
+  </div>
+
+  <!-- QUEUE -->
+  <div id="queueView">
+    <h1>Review queue</h1>
+    <p class="sub">Inspect each file before publishing. Nothing reaches the marketplace until you approve it here.</p>
+    <div id="cards"></div>
+    <div id="emptyState" class="empty" style="display:none;">Nothing pending. You're caught up.</div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://ztgneiealwvwrttovqxb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0Z25laWVhbHd2d3J0dG92cXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDU5NTIsImV4cCI6MjEwMDkyMTk1Mn0.YUxM1Sr3fomESNe7pcHtU9kToAZU8i4uT3ZAHdFQaFI";
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const ph = () => window.BasaltPH;
+
+  const authView = document.getElementById("authView");
+  const deniedView = document.getElementById("deniedView");
+  const queueView = document.getElementById("queueView");
+  const authStatus = document.getElementById("authStatus");
+  const cardsEl = document.getElementById("cards");
+  const emptyEl = document.getElementById("emptyState");
+
+  function showOnly(el) {
+    [authView, deniedView, queueView].forEach((v) => v.classList.remove("show"));
+    el.classList.add("show");
+  }
+
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = "status show " + kind;
+  }
+
+
+  async function authEmailPassword(kind) {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if (!email || !password) {
+      setStatus(authStatus, "Enter email and password.", "err");
+      return;
+    }
+    setStatus(authStatus, kind === "signup" ? "Creating account…" : "Signing in…", "pending");
+    const fn = kind === "signup"
+      ? () => sb.auth.signUp({ email, password })
+      : () => sb.auth.signInWithPassword({ email, password });
+    const { data, error } = await fn();
+    if (error) {
+      setStatus(authStatus, "Error: " + error.message, "err");
+      return;
+    }
+    if (kind === "signup" && !data.session) {
+      setStatus(authStatus, "Signed up, but Supabase still wants email confirm (and email sending is broken). Fix: Supabase → Authentication → Sign In / Providers → Email → turn Confirm email OFF. Then Log in.", "err");
+      return;
+    }
+    setStatus(authStatus, "Signed in.", "ok");
+  }
+
+  document.getElementById("loginBtn").addEventListener("click", () => authEmailPassword("login"));
+  document.getElementById("signupBtn").addEventListener("click", () => authEmailPassword("signup"));
+
+  document.getElementById("googleBtn")?.addEventListener("click", async () => {
+    if (location.protocol === "file:") {
+      setStatus(authStatus, "Google needs http://127.0.0.1 — not file://", "err");
+      return;
+    }
+    setStatus(authStatus, "Redirecting to Google…", "pending");
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.href.split("#")[0].split("?")[0] },
+    });
+    if (error) setStatus(authStatus, "Error: " + error.message, "err");
+  });
+
+  document.getElementById("appleBtn")?.addEventListener("click", async () => {
+    if (location.protocol === "file:") {
+      setStatus(authStatus, "Apple needs http://127.0.0.1 — not file://", "err");
+      return;
+    }
+    setStatus(authStatus, "Redirecting to Apple…", "pending");
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: window.location.href.split("#")[0].split("?")[0] },
+    });
+    if (error) setStatus(authStatus, "Error: " + error.message, "err");
+  });
+
+  document.getElementById("forgotBtn")?.addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) { setStatus(authStatus, "Enter email first.", "err"); return; }
+    if (location.protocol === "file:") {
+      setStatus(authStatus, "Password reset needs http://localhost.", "err");
+      return;
+    }
+    setStatus(authStatus, "Sending password reset email…", "pending");
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href.split("#")[0].split("?")[0],
+    });
+    setStatus(authStatus, error ? ("Error: " + error.message) : "Check your email for the change-password link.", error ? "err" : "ok");
+  });
+
+  document.getElementById("sendLinkBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) return;
+    if (location.protocol === "file:") {
+      setStatus(authStatus, "Magic links can't finish on file:// — use Log in / Sign up, or serve this folder over http://localhost.", "err");
+      return;
+    }
+    setStatus(authStatus, "Sending link…", "pending");
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href.split("#")[0] },
+    });
+    setStatus(authStatus, error ? "Error: " + error.message : "Check your email for a login link (same site URL).", error ? "err" : "ok");
+  });
+
+  // Automated schema + heuristic checks live in validator.js (shared with
+  // submit.html) so both pages agree on what "valid" means.
+  const MAX_FILE_SIZE = 250 * 1024; // 250KB — belt-and-suspenders on top of the schema's own cap
+
+  async function inspectFile(card, submission) {
+    const box = card.querySelector(".inspect-box");
+    box.innerHTML = `<div class="check-row info">Fetching file…</div>`;
+
+    const { data: signed, error: signErr } = await sb.storage
+      .from("pending-submissions")
+      .createSignedUrl(submission.file_path, 60);
+
+    if (signErr) {
+      box.innerHTML = `<div class="check-row fail">✕ Couldn't fetch file: ${signErr.message}</div>`;
+      return;
+    }
+
+    const res = await fetch(signed.signedUrl);
+    const text = await res.text();
+    const sizeKb = (text.length / 1024).toFixed(1);
+    const sizeOk = text.length <= MAX_FILE_SIZE;
+
+    const { valid, errors, warnings } = validateSubmissionJson(text);
+
+    const rows = [
+      `<div class="check-row info">File size: ${sizeKb} KB${sizeOk ? "" : " — over the 250KB cap"}</div>`,
+      ...errors.map((e) => `<div class="check-row fail">✕ ${escapeHtml(e)}</div>`),
+      ...warnings.map((w) => `<div class="check-row warn">⚠ ${escapeHtml(w)}</div>`),
+    ];
+    if (valid && warnings.length === 0) {
+      rows.push(`<div class="check-row pass">✓ Looks like a known Basalt texture shape</div>`);
+    } else if (valid) {
+      rows.push(`<div class="check-row pass">✓ Allowed into queue — warnings are for you to read, not auto-blocks</div>`);
+    }
+    rows.push(`<div class="check-row info">Hard errors block publish. Unknown fields / new renderers are warnings — you decide. This is not a GPU sandbox.</div>`);
+
+    box.innerHTML = rows.join("") + `<pre class="file-preview">${escapeHtml(text.slice(0, 4000))}${text.length > 4000 ? "\n…(truncated)" : ""}</pre>`;
+    card.dataset.inspected = "true";
+
+    const approveBtn = card.querySelector('[data-approve]');
+    approveBtn.disabled = !(valid && sizeOk);
+    approveBtn.title = valid && sizeOk ? (warnings.length ? "Publishes despite warnings — make sure you read them." : "") : "Fix hard errors above before this can be published.";
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderCard(submission) {
+    const card = document.createElement("div");
+    card.className = "panel submission-card";
+    card.innerHTML = `
+      <div class="sub-head">
+        <div>
+          <p class="sub-title">${escapeHtml(submission.name)}</p>
+          <p class="sub-meta">${escapeHtml(submission.category)} · ${escapeHtml(submission.artist_email || submission.artist_id?.slice(0, 8) + '…' || 'artist')} · ${new Date(submission.created_at).toLocaleDateString()}</p>
+        </div>
+        <div class="price-tag">$${submission.price}</div>
+      </div>
+      <p class="sub-desc">${escapeHtml(submission.description)}</p>
+      <div class="inspect-box" style="display:none;"></div>
+      <div class="action-row btn-rail btn-rail-fill">
+        <button class="ghost" data-inspect>Inspect file</button>
+        <button data-approve disabled>Approve &amp; publish</button>
+        <button class="danger" data-reject>Reject</button>
+      </div>
+      <div class="status" data-status></div>
+    `;
+
+    const inspectBtn = card.querySelector("[data-inspect]");
+    const box = card.querySelector(".inspect-box");
+    inspectBtn.addEventListener("click", async () => {
+      box.style.display = "block";
+      inspectBtn.disabled = true;
+      await inspectFile(card, submission);
+      inspectBtn.disabled = false;
+    });
+
+    card.querySelector("[data-approve]").addEventListener("click", async (e) => {
+      const btn = e.target;
+      const statusEl = card.querySelector("[data-status]");
+      btn.disabled = true;
+      setStatus(statusEl, "Publishing…", "pending");
+
+      const { error: insertErr } = await sb.from("catalog_items").insert({
+        name: submission.name,
+        type: "component",
+        description: submission.description,
+        price: submission.price,
+        sort_order: 0,
+      });
+      if (insertErr) {
+        setStatus(statusEl, "Publish failed: " + insertErr.message, "err");
+        btn.disabled = false;
+        return;
+      }
+
+      const { error: updateErr } = await sb.from("submissions")
+        .update({ status: "approved", reviewed_at: new Date().toISOString() })
+        .eq("id", submission.id);
+
+      if (updateErr) {
+        setStatus(statusEl, "Published, but failed to update submission status: " + updateErr.message, "err");
+        return;
+      }
+
+      setStatus(statusEl, "Published to the marketplace.", "ok");
+      ph()?.capture("web_review_approved", { submission_id: String(submission.id) });
+      setTimeout(() => card.remove(), 900);
+    });
+
+    card.querySelector("[data-reject]").addEventListener("click", async () => {
+      const reason = prompt("Reason for rejecting (sent nowhere yet, just logged):") || null;
+      const statusEl = card.querySelector("[data-status]");
+      const { error } = await sb.from("submissions")
+        .update({ status: "rejected", review_note: reason, reviewed_at: new Date().toISOString() })
+        .eq("id", submission.id);
+      if (error) {
+        setStatus(statusEl, "Failed: " + error.message, "err");
+      } else {
+        setStatus(statusEl, "Rejected.", "ok");
+        ph()?.capture("web_review_rejected", { submission_id: String(submission.id) });
+        setTimeout(() => card.remove(), 600);
+      }
+    });
+
+    return card;
+  }
+
+  async function loadQueue() {
+    const { data, error } = await sb.from("submissions")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+    data.forEach((s) => cardsEl.appendChild(renderCard(s)));
+  }
+
+  async function boot() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showOnly(authView); return; }
+
+    const { data: adminRow } = await sb.from("admins").select("user_id").eq("user_id", session.user.id).maybeSingle();
+    if (!adminRow) { showOnly(deniedView); return; }
+
+    showOnly(queueView);
+    ph()?.identify(session.user);
+    ph()?.capture("web_review_queue_viewed");
+    loadQueue();
+  }
+
+  sb.auth.onAuthStateChange(() => boot());
+  boot();
+</script>
+
+</body>
+</html>

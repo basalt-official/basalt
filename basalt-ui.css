@@ -1,0 +1,94 @@
+/**
+ * Connected button groups — when 3+ actions sit on one row,
+ * wrap them in .btn-rail so they share one rectangle.
+ */
+.btn-rail {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--border, #232323);
+  border-radius: 4px;
+  background: var(--panel, #131313);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-rail > button,
+.btn-rail > a,
+.btn-rail > .btn,
+.btn-rail > .filter-pill,
+.btn-rail > .drawer-btn {
+  flex: 1 1 auto;
+  margin: 0 !important;
+  border-radius: 2px !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.btn-rail > * + * {
+  border-left: 1px solid var(--border, #232323) !important;
+  border-radius: 0 !important;
+}
+
+.btn-rail > *:first-child {
+  border-top-left-radius: 2px !important;
+  border-bottom-left-radius: 2px !important;
+}
+
+.btn-rail > *:last-child {
+  border-top-right-radius: 2px !important;
+  border-bottom-right-radius: 2px !important;
+}
+
+.btn-rail > .is-active,
+.btn-rail > button.is-active,
+.btn-rail > .filter-pill.is-active {
+  background: rgba(255, 106, 61, 0.12);
+  color: var(--accent, #ff6a3d);
+}
+
+.btn-rail > .btn-primary,
+.btn-rail > button.primary,
+.btn-rail > .drawer-btn.primary {
+  background: var(--accent, #ff6a3d);
+  color: #0a0a0a;
+  font-weight: 700;
+}
+
+.btn-rail > .btn-primary:hover,
+.btn-rail > button.primary:hover,
+.btn-rail > .drawer-btn.primary:hover {
+  opacity: 0.92;
+}
+
+.btn-rail > button:hover:not(:disabled):not(.is-active):not(.btn-primary):not(.primary),
+.btn-rail > a:hover:not(.btn-primary),
+.btn-rail > .filter-pill:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text, #f2f2f0);
+}
+
+.btn-rail > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Full-width rails (auth rows, CTAs) */
+.btn-rail.btn-rail-fill {
+  display: flex;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .btn-rail {
+    width: 100%;
+  }
+  .btn-rail > * {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}

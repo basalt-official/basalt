@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketplace — Basalt</title>
+<meta name="description" content="Browse components, animations, styles, and bundles for Basalt.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="basalt-ui.css">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#131313;
+    --panel-hover:#181818;
+    --border:#232323;
+    --text:#f2f2f0;
+    --text-dim:#8a8a86;
+    --accent:#ff6a3d;
+    --accent-dim:#3a2318;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 32px; }
+
+  /* nav */
+  nav{ padding:26px 0; border-bottom:1px solid var(--border); }
+  nav .wrap{ display:flex; align-items:center; justify-content:space-between; }
+  .logo{ font-weight:700; font-size:19px; letter-spacing:-0.01em; text-decoration:none; }
+  .nav-links{ display:flex; align-items:center; gap:28px; }
+  .nav-links a{ font-size:14.5px; color:var(--text-dim); text-decoration:none; transition:color .15s ease; }
+  .nav-links a:hover{ color:var(--text); }
+  @media (max-width:640px){ .nav-links{ display:none; } }
+
+  /* header */
+  .market-header{ padding:64px 0 36px; }
+  .eyebrow{
+    font-size:13px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 14px;
+  }
+  h1{ font-size:clamp(28px, 3.6vw, 40px); font-weight:800; letter-spacing:-0.02em; margin:0 0 10px; }
+  .market-sub{ color:var(--text-dim); font-size:15px; max-width:520px; line-height:1.6; margin:0 0 36px; }
+
+  .controls{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .search-box{ position:relative; flex:1; min-width:220px; max-width:340px; }
+  .search-box input{
+    width:100%; background:var(--panel); border:1px solid var(--border); border-radius:3px;
+    padding:11px 14px 11px 38px; color:var(--text); font-family:'Inter', sans-serif; font-size:14px;
+    transition:border-color .15s ease;
+  }
+  .search-box input:focus{ outline:none; border-color:var(--accent); }
+  .search-box svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); opacity:0.5; pointer-events:none; }
+
+  .filters{ display:flex; flex-wrap:wrap; }
+  .filters.btn-rail{ gap: 0; }
+  .filter-pill{
+    font-family:'Inter', sans-serif; font-size:13.5px; font-weight:600;
+    padding:9px 16px; border-radius:3px; border:1px solid var(--border); background:transparent;
+    color:var(--text-dim); cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .filter-pill:hover{ color:var(--text); border-color:#3a3a3a; }
+  .filter-pill.is-active{ background:transparent; border-color:var(--accent); color:var(--accent); }
+  .btn-rail .filter-pill{
+    border: none;
+    border-radius: 0;
+  }
+  .btn-rail .filter-pill.is-active{
+    border-color: transparent;
+  }
+
+  .type-desc{ font-size:13px; color:var(--text-dim); margin:16px 0 40px; min-height:18px; }
+
+  /* grid */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+    gap:16px;
+    padding-bottom:100px;
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; transition:border-color .15s ease, background .15s ease;
+  }
+  .card:hover{ border-color:#3a3a3a; background:var(--panel-hover); }
+  .swatch{
+    width:100%; aspect-ratio:16/10; border-radius:3px; margin-bottom:16px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--text-dim);
+    border:1px solid var(--border);
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,106,61,0.16), transparent 60%),
+      linear-gradient(160deg, #16110d, #0d0c0b);
+  }
+  .card h3{ font-size:15.5px; font-weight:600; margin:0 0 8px; letter-spacing:-0.005em; }
+  .card p{ font-size:13px; color:var(--text-dim); line-height:1.55; margin:0 0 14px; }
+  .badge{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+    padding:4px 9px; border-radius:2px; background:transparent; color:var(--accent);
+    border:1px solid rgba(255,106,61,0.45);
+  }
+
+  .empty-state, .status-state{
+    padding:70px 20px; text-align:center; color:var(--text-dim); font-size:14.5px;
+    border:1px dashed var(--border); border-radius:var(--radius);
+  }
+  [data-grid-state]{ display:none; }
+  [data-grid-state].is-active{ display:block; }
+  #grid[data-grid-state].is-active{ display:grid; }
+
+  .your-submissions { margin-bottom: 28px; }
+  .your-submissions h2 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  .your-submissions p { font-size: 13px; color: var(--text-dim); margin: 0 0 14px; line-height: 1.5; }
+  .your-submissions .grid { padding-bottom: 0; }
+  .badge.pending { background: transparent; color: #ffb84d; border-color: rgba(255,180,80,0.45); }
+  .badge.approved { background: transparent; color: #6fd67f; border-color: rgba(80,200,120,0.45); }
+  .badge.rejected { background: transparent; color: #ff8a8a; border-color: rgba(255,100,100,0.45); }
+  .card-by{
+    font-size:12.5px; color:var(--text-dim); margin:0 0 8px; line-height:1.3;
+  }
+  .card-by-name{ color:var(--text); font-weight:600; }
+  .card-meta { font-size: 12px; color: var(--text-dim); margin: 0 0 8px; }
+  .card-meta s { color: var(--text-dim); opacity: 0.7; margin-right: 6px; font-weight: 500; }
+  .badge.sale {
+    color: #ff8a5c;
+    border-color: rgba(255,106,61,0.55);
+  }
+  .badge.stock {
+    color: #a0a0a0;
+    border-color: rgba(140,140,140,0.45);
+  }
+  .badge.soldout {
+    color: #ff8a8a;
+    border-color: rgba(255,100,100,0.45);
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  .sort-select {
+    background: var(--panel, #131313);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    min-width: 180px;
+  }
+  .price-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .price-range input {
+    width: 88px;
+    background: var(--bg, #0a0a0a);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 13px;
+  }
+  .drawer-edit label { margin-top: 12px; }
+  .drawer-edit .check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .drawer-edit .check-row input { width: auto; margin-top: 2px; }
+  .drawer-edit .stock-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+  .drawer-edit .stock-row label { margin: 0; font-weight: 500; }
+  .nav-links a.is-active { color: var(--text); }
+  .nav-sync-key {
+    appearance: none; border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); font: inherit; font-size: 13px; padding: 6px 10px;
+    border-radius: 3px; cursor: pointer;
+  }
+  .nav-sync-key:hover { color: var(--text); border-color: var(--accent); }
+  .nav-sync-key.is-on { color: var(--accent); border-color: var(--accent); }
+
+
+  .card { cursor: pointer; }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swatch { overflow: hidden; padding: 0; }
+  .swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card p.desc-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  #market-drawer-root { position: fixed; inset: 0; z-index: 500; display: none; }
+  #market-drawer-root.is-open { display: block; }
+  #market-drawer-backdrop { position: absolute; inset: 0; border: 0; background: rgba(0,0,0,0.55); cursor: pointer; }
+  #market-drawer {
+    position: absolute; right: 0; top: 0; bottom: 0; width: min(420px, 100vw);
+    background: #121214; border-left: 1px solid var(--border); padding: 24px 22px 32px;
+    overflow-y: auto; transform: translateX(100%); transition: transform .22s ease;
+  }
+  #market-drawer-root.is-open #market-drawer { transform: translateX(0); }
+  #market-drawer-close {
+    position: absolute; right: 14px; top: 12px; width: 34px; height: 34px; border-radius: 3px;
+    border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 20px; cursor: pointer;
+  }
+  .drawer-preview { width: 100%; aspect-ratio: 16/10; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; background: #0d0d0f; }
+  .drawer-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .drawer-title { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
+  .drawer-desc { font-size: 14px; line-height: 1.55; color: var(--text-dim); margin: 0 0 16px; }
+  .drawer-meta { font-size: 12px; color: var(--text-dim); margin: 0 0 18px; }
+  .drawer-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .drawer-actions.btn-rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0;
+    width: 100%;
+  }
+  .drawer-actions.btn-rail .drawer-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .drawer-btn {
+    width: 100%; padding: 12px 14px; border-radius: 3px; font-size: 14px; font-weight: 700; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+  }
+  .drawer-btn.primary { background: var(--accent); border-color: var(--accent); color: #111; }
+  .drawer-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .drawer-edit label { display: block; font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
+  .drawer-edit input, .drawer-edit textarea, .drawer-edit select {
+    width: 100%; background: #0a0a0a; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); padding: 10px 12px; font: inherit; font-size: 14px;
+  }
+  .drawer-edit textarea { min-height: 88px; resize: vertical; }
+  .drawer-status { font-size: 12px; margin-top: 12px; color: var(--text-dim); }
+  .drawer-status.err { color: #ff8a8a; }
+  .drawer-status.ok { color: #6fd67f; }
+
+
+  #auth-modal-root {
+    position: fixed; inset: 0; z-index: 600; display: none;
+    align-items: center; justify-content: center;
+  }
+  #auth-modal-root.is-open { display: flex; }
+  #auth-modal-backdrop {
+    position: absolute; inset: 0; border: 0; background: rgba(0,0,0,0.65); cursor: pointer;
+  }
+  #auth-modal {
+    position: relative; width: min(400px, calc(100vw - 32px));
+    background: #141416; border: 1px solid var(--border); border-radius: 4px;
+    padding: 22px 20px 20px; box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  }
+  #auth-modal h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+  #auth-modal .auth-sub { margin: 0 0 16px; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
+  #auth-modal label { display: block; font-size: 12px; font-weight: 600; margin: 12px 0 6px; }
+  #auth-modal input {
+    width: 100%; background: #0a0a0a; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); padding: 10px 12px; font: inherit; font-size: 14px;
+  }
+  #auth-modal .auth-row { display: flex; gap: 8px; margin-top: 12px; }
+  #auth-modal .auth-row button { flex: 1; }
+  #auth-modal .auth-google {
+    width: 100%; margin-bottom: 10px; background: #fff; color: #111;
+    border: 1px solid #dadce0; border-radius: 3px; padding: 11px 14px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #auth-modal .auth-google:hover { background: #f7f8f8; }
+  #auth-modal .auth-apple {
+    width: 100%; margin-bottom: 12px; background: #000; color: #fff;
+    border: 1px solid #000; border-radius: 3px; padding: 11px 14px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #auth-modal .auth-apple:hover { background: #1a1a1a; }
+  #auth-modal .auth-divider {
+    display: flex; align-items: center; gap: 10px; margin: 4px 0 8px;
+    color: var(--text-dim); font-size: 12px;
+  }
+  #auth-modal .auth-divider::before, #auth-modal .auth-divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--border);
+  }
+  #auth-modal .auth-status { font-size: 12px; margin-top: 12px; color: var(--text-dim); min-height: 1.2em; }
+  #auth-modal .auth-status.err { color: #ff8a8a; }
+  #auth-modal .auth-status.ok { color: #6fd67f; }
+  #auth-modal-close {
+    position: absolute; right: 10px; top: 10px; width: 32px; height: 32px;
+    border: 1px solid var(--border); border-radius: 3px; background: transparent;
+    color: var(--text); font-size: 18px; cursor: pointer;
+  }
+  .drawer-btn.primary, #auth-modal .drawer-btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #111;
+  }
+
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="index.html">basalt</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="submit.html">Submit</a>
+      <a href="marketplace.html" class="is-active">Marketplace</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <button type="button" id="nav-sync-key" class="nav-sync-key" hidden title="Copy Basalt sync key">Sync key</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="market-header">
+    <p class="eyebrow">Marketplace</p>
+    <h1>Components, animations & styles</h1>
+    <p class="market-sub">Official Basalt catalog plus artist submissions — live as soon as they’re posted.</p>
+
+    <div class="controls">
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search the marketplace…" data-search autocomplete="off">
+      </div>
+      <div class="filters btn-rail" data-filters>
+        <button class="filter-pill is-active" type="button" data-filter="all">All</button>
+        <button class="filter-pill" type="button" data-filter="component">Component</button>
+        <button class="filter-pill" type="button" data-filter="animation">Animation</button>
+        <button class="filter-pill" type="button" data-filter="style">Style</button>
+        <button class="filter-pill" type="button" data-filter="bundle">Bundle</button>
+      </div>
+    </div>
+    <div class="controls-row">
+      <label class="price-range" style="margin:0">
+        <span>Sort</span>
+        <select class="sort-select" id="market-sort" aria-label="Sort listings">
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="price_low">Price: low → high</option>
+          <option value="price_high">Price: high → low</option>
+          <option value="popular">Most popular</option>
+        </select>
+      </label>
+      <div class="price-range">
+        <span>Price $</span>
+        <input type="number" id="price-min" min="0" step="1" placeholder="Min" aria-label="Min price">
+        <span>–</span>
+        <input type="number" id="price-max" min="0" step="1" placeholder="Max" aria-label="Max price">
+      </div>
+    </div>
+    <p class="type-desc" data-type-desc>Everything in the catalog.</p>
+  </div>
+
+
+
+  <div class="status-state is-active" data-grid-state="loading">Loading the catalog…</div>
+  <div class="status-state" data-grid-state="error">Couldn't load the catalog. Check your Supabase config and that the <code>catalog_items</code> table exists.</div>
+  <div class="empty-state" data-grid-state="empty">Nothing matches that search or filter.</div>
+  <div class="grid" id="grid" data-grid-state="results"></div>
+</main>
+
+
+<div id="market-drawer-root" hidden>
+  <button type="button" id="market-drawer-backdrop" aria-label="Close"></button>
+  <aside id="market-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <button type="button" id="market-drawer-close" aria-label="Close">×</button>
+    <div id="market-drawer-body"></div>
+  </aside>
+</div>
+<script src="marketplace-preview.js"></script>
+
+
+<div id="auth-modal-root" hidden>
+  <button type="button" id="auth-modal-backdrop" aria-label="Close sign in"></button>
+  <div id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <button type="button" id="auth-modal-close" aria-label="Close">×</button>
+    <h3 id="auth-modal-title">Sign in to continue</h3>
+    <p class="auth-sub">Buy needs an account. Your product stays open after you sign in.</p>
+    <button type="button" class="auth-google" id="auth-google-btn">Continue with Google</button>
+    <button type="button" class="auth-apple" id="auth-apple-btn">Continue with Apple</button>
+    <div class="auth-divider"><span>or email</span></div>
+    <label for="auth-email">Email</label>
+    <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" />
+    <label for="auth-password">Password</label>
+    <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" />
+    <div class="auth-row">
+      <button type="button" class="drawer-btn primary" id="auth-login-btn">Log in</button>
+      <button type="button" class="drawer-btn" id="auth-signup-btn">Sign up</button>
+    </div>
+    <p class="auth-status" id="auth-modal-status"></p>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from './supabase-client.js';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+  import { PLATFORM_FEE_BPS, splitSaleCents } from './marketplace-fees.js';
+
+  // Analytics is optional — never take down the marketplace if PostHog/config is missing on deploy.
+  let identifyWebUser = () => {};
+  let resetWebUser = () => {};
+  let captureWeb = () => {};
+  let isWebFlagEnabled = () => true;
+  try {
+    const ph = await import('./posthog-web.js');
+    identifyWebUser = ph.identifyWebUser || identifyWebUser;
+    resetWebUser = ph.resetWebUser || resetWebUser;
+    captureWeb = ph.captureWeb || captureWeb;
+    isWebFlagEnabled = ph.isWebFlagEnabled || isWebFlagEnabled;
+  } catch (err) {
+    console.warn('[marketplace] PostHog unavailable — catalog still works', err?.message || err);
+  }
+
+  const typeDescriptions = {
+    all: 'Official catalog + artist submissions.',
+    component: 'Skins / UI pieces — Skia buttons, glass panels, segments, cards.',
+    animation: 'Enter / opacity motion.',
+    style: 'Look presets.',
+    bundle: 'A pack of several items bundled together.',
+  };
+
+  let allItems = [];
+  let activeFilter = 'all';
+  let searchTerm = '';
+  let sortMode = 'newest';
+  let priceMin = null;
+  let priceMax = null;
+  let currentUserId = null;
+  let selectedItem = null;
+  const ownedKeys = new Set();
+  const PENDING_ITEM_KEY = 'basalt_market_pending_item';
+  const PENDING_BUY_KEY = 'basalt_market_pending_buy';
+
+  const grid = document.getElementById('grid');
+  const typeDescEl = document.querySelector('[data-type-desc]');
+  const drawerRoot = document.getElementById('market-drawer-root');
+  const drawerBody = document.getElementById('market-drawer-body');
+
+  function previewFor(item) {
+    return window.BasaltMarketPreview?.previewForItem(item) || '';
+  }
+
+  let catalogPreviewMap = null;
+  async function loadCatalogPreviewMap() {
+    if (catalogPreviewMap) return catalogPreviewMap;
+    try {
+      const res = await fetch('catalog-previews.json', { cache: 'force-cache' });
+      if (res.ok) catalogPreviewMap = await res.json();
+      else catalogPreviewMap = {};
+    } catch (_) {
+      catalogPreviewMap = {};
+    }
+    return catalogPreviewMap;
+  }
+
+  function slugifyName(name) {
+    return String(name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function lookupCatalogMeta(item) {
+    const map = catalogPreviewMap || {};
+    const keys = [
+      item.basalt_item_id,
+      item.slug,
+      item.variant,
+      item.id,
+      item.name && String(item.name).toLowerCase(),
+      item.name && slugifyName(item.name),
+    ]
+      .filter(Boolean)
+      .map((k) => String(k).toLowerCase());
+    for (const k of keys) {
+      if (map[k]) return map[k];
+    }
+    return null;
+  }
+
+  async function tryTextureUrl(url, displayName) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const text = await res.text();
+      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, displayName);
+      return built && built.ok ? built.url : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Screenshot → catalog preview SVG → texture JSON → needs screenshot (community). */
+  async function resolveItemPreview(item) {
+    if (!item) return;
+    if (item.preview_url) return;
+    if (item._texturePreview || item._needsScreenshot) return;
+    item._previewLoading = true;
+    try {
+      await loadCatalogPreviewMap();
+      const meta = lookupCatalogMeta(item);
+      if (meta && meta.preview_url) {
+        item._texturePreview = meta.preview_url;
+        return;
+      }
+
+      const textureCandidates = [];
+      if (meta && meta.texture) textureCandidates.push(meta.texture);
+      const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
+      if (slug) {
+        textureCandidates.push('assets/basalt-library/' + slug + '.texture.json');
+        // common aliases
+        if (slug === 'glow') textureCandidates.push('assets/basalt-library/glow-gradient.texture.json');
+        if (slug === 'liquid-glass-ios') textureCandidates.push('assets/basalt-library/liquid-glass.texture.json');
+      }
+
+      for (const path of textureCandidates) {
+        const url = await tryTextureUrl(path, item.name);
+        if (url) {
+          item._texturePreview = url;
+          return;
+        }
+      }
+
+      // Community: try storage JSON
+      if (item.source === 'community' && item.file_path) {
+        const { data, error } = await supabase.storage
+          .from('pending-submissions')
+          .createSignedUrl(item.file_path, 120);
+        if (!error && data?.signedUrl) {
+          const res = await fetch(data.signedUrl);
+          if (res.ok) {
+            const text = await res.text();
+            const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, item.name);
+            if (built && built.ok) {
+              item._texturePreview = built.url;
+              return;
+            }
+            item._needsScreenshot = true;
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      /* leave placeholder */
+    } finally {
+      item._previewLoading = false;
+    }
+  }
+
+  async function hydratePreviews(items) {
+    const targets = (items || []).filter(
+      (i) => i && !i.preview_url && !i._texturePreview && !i._needsScreenshot
+    );
+    if (!targets.length) return;
+    await loadCatalogPreviewMap();
+    const chunk = 6;
+    for (let i = 0; i < targets.length; i += chunk) {
+      await Promise.all(targets.slice(i, i + chunk).map(resolveItemPreview));
+      render();
+    }
+  }
+
+  function setState(state) {
+    document.querySelectorAll('[data-grid-state]').forEach((el) => {
+      el.classList.toggle('is-active', el.dataset.gridState === state);
+    });
+  }
+
+  function categoryToType(category) {
+    const c = String(category || '').toLowerCase();
+    if (c.includes('anim')) return 'animation';
+    if (c.includes('style')) return 'style';
+    if (c.includes('bundle')) return 'bundle';
+    return 'component';
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  function creatorHandle(item) {
+    const email = String((item && item.artist_email) || '').trim();
+    if (!email) return '';
+    const local = email.split('@')[0];
+    return local || email;
+  }
+
+  function saleInfo(item) {
+    const price = Number(item.price || 0);
+    const compare =
+      item.compare_at_price != null && item.compare_at_price !== ''
+        ? Number(item.compare_at_price)
+        : null;
+    const showLabel =
+      item.show_discount_label !== false &&
+      compare != null &&
+      Number.isFinite(compare) &&
+      compare > price;
+    const pct = showLabel && compare > 0 ? Math.round((1 - price / compare) * 100) : 0;
+    return { price, compare, showLabel, pct };
+  }
+
+  function isUnlimitedStock(item) {
+    return item.source !== 'community' || item.stock_unlimited !== false;
+  }
+
+  function isSoldOut(item) {
+    if (isUnlimitedStock(item)) return false;
+    return !(Number(item.stock_remaining) > 0);
+  }
+
+  function stockLabel(item) {
+    if (item.source !== 'community') return '';
+    if (isUnlimitedStock(item)) return 'Unlimited';
+    const n = Number(item.stock_remaining);
+    if (!(n > 0)) return 'Sold out';
+    return n === 1 ? '1 left' : n + ' left';
+  }
+
+  function priceHtml(item) {
+    const s = saleInfo(item);
+    if (s.price <= 0) return '<strong>Free</strong>';
+    if (s.showLabel) {
+      return `<s>$${s.compare.toFixed(2)}</s><strong>$${s.price.toFixed(2)}</strong>`;
+    }
+    return `<strong>$${s.price.toFixed(2)}</strong>`;
+  }
+
+  function itemBadges(item) {
+    // Type + optional sale / stock — no Community / Pending chips.
+    let html = `<span class="badge">${escapeHtml(item.type)}</span>`;
+    const s = saleInfo(item);
+    if (s.showLabel) {
+      html += `<span class="badge sale">${s.pct > 0 ? s.pct + '% off' : 'Sale'}</span>`;
+    }
+    if (item.source === 'community' && !isUnlimitedStock(item)) {
+      html += isSoldOut(item)
+        ? `<span class="badge soldout">Sold out</span>`
+        : `<span class="badge stock">${escapeHtml(stockLabel(item))}</span>`;
+    }
+    return html;
+  }
+
+  function creatorLine(item) {
+    if (!item || item.source !== 'community') return '';
+    const handle = creatorHandle(item);
+    if (!handle) return '<p class="card-by">Artist submission</p>';
+    return `<p class="card-by">by <span class="card-by-name">@${escapeHtml(handle)}</span></p>`;
+  }
+
+  function thumbBlock(item) {
+    const src = previewFor(item);
+    return `<div class="swatch"><img alt="" src="${src.replace(/"/g, '&quot;')}" loading="lazy" /></div>`;
+  }
+
+  function sortItems(list) {
+    const arr = list.slice();
+    const ts = (it) => {
+      const t = Date.parse(it.created_at || '') || 0;
+      return t;
+    };
+    const popular = (it) => Number(it.download_count) || 0;
+    const price = (it) => Number(it.price) || 0;
+    switch (sortMode) {
+      case 'oldest':
+        arr.sort((a, b) => ts(a) - ts(b) || String(a.name).localeCompare(String(b.name)));
+        break;
+      case 'price_low':
+        arr.sort((a, b) => price(a) - price(b) || ts(b) - ts(a));
+        break;
+      case 'price_high':
+        arr.sort((a, b) => price(b) - price(a) || ts(b) - ts(a));
+        break;
+      case 'popular':
+        arr.sort((a, b) => popular(b) - popular(a) || ts(b) - ts(a));
+        break;
+      case 'newest':
+      default:
+        arr.sort((a, b) => ts(b) - ts(a) || String(a.name).localeCompare(String(b.name)));
+        break;
+    }
+    return arr;
+  }
+
+  function render() {
+    const filtered = sortItems(
+      allItems.filter((item) => {
+        const matchesType = activeFilter === 'all' || item.type === activeFilter;
+        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const p = Number(item.price) || 0;
+        const matchesMin = priceMin == null || !(priceMin > 0) || p >= priceMin;
+        const matchesMax = priceMax == null || !(priceMax > 0) || p <= priceMax;
+        return matchesType && matchesSearch && matchesMin && matchesMax;
+      })
+    );
+
+    if (filtered.length === 0) {
+      setState('empty');
+      return;
+    }
+
+    setState('results');
+    grid.innerHTML = filtered.map((item, idx) => `
+      <div class="card" tabindex="0" role="button" data-idx="${idx}" aria-label="Open ${escapeHtml(item.name)}">
+        ${thumbBlock(item)}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${itemBadges(item)}</div>
+        ${creatorLine(item)}
+        <h3>${escapeHtml(item.name)}</h3>
+        ${item.description ? `<p class="desc-clamp">${escapeHtml(item.description)}</p>` : ''}
+        <p class="card-meta">${priceHtml(item)}${Number(item.price) > 0 ? '' : ''}${item.download_count != null ? ' · ' + Number(item.download_count) + ' download' + (Number(item.download_count) === 1 ? '' : 's') : ''}${item.source === 'community' && !isUnlimitedStock(item) ? ' · ' + escapeHtml(stockLabel(item)) : ''}</p>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.card').forEach((card) => {
+      card.addEventListener('click', () => openDrawer(filtered[Number(card.dataset.idx)]));
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(filtered[Number(card.dataset.idx)]); }
+      });
+    });
+  }
+
+  function isOwner(item) {
+    return !!(item && item.source === 'community' && currentUserId && item.artist_id === currentUserId);
+  }
+
+  function closeDrawer() {
+    if (!drawerRoot) return;
+    drawerRoot.classList.remove('is-open');
+    drawerRoot.hidden = true;
+    selectedItem = null;
+    // Keep pending while auth modal is open (user may still finish sign-in)
+    if (!document.getElementById('auth-modal-root')?.classList.contains('is-open')) {
+      try {
+        sessionStorage.removeItem(PENDING_ITEM_KEY);
+        sessionStorage.removeItem(PENDING_BUY_KEY);
+      } catch (_) {}
+    }
+  }
+
+  function openDrawer(item) {
+    if (!drawerRoot || !drawerBody) return;
+    selectedItem = item;
+    rememberOpenItem(item, false);
+    drawerRoot.hidden = false;
+    requestAnimationFrame(() => drawerRoot.classList.add('is-open'));
+    renderDrawer(item, false);
+  }
+
+  function safeFileName(item) {
+    const base =
+      item.basalt_item_id ||
+      item.slug ||
+      item.variant ||
+      slugifyName(item.name) ||
+      'basalt-skin';
+    return String(base).replace(/\.texture\.json$/i, '') + '.texture.json';
+  }
+
+  function triggerBrowserDownload(text, filename) {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function userOwnsItem(item) {
+    if (!item) return false;
+    const key = ownershipKey(item);
+    if (ownedKeys.has(key)) return true;
+    if (isOwner(item)) return true;
+    // Free skins: download anytime (Get free still records a purchase for My Stuff)
+    if (Number(item.price || 0) <= 0) return true;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return false;
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('id')
+      .eq('buyer_id', session.user.id)
+      .eq('item_id', String(item.id))
+      .limit(1);
+    if (error) return false;
+    const ok = !!(data && data.length);
+    if (ok) ownedKeys.add(key);
+    return ok;
+  }
+
+  /** Paid items need a purchase row; free/owner always ok for download. */
+  async function hasPurchasedItem(item) {
+    if (!item) return false;
+    const key = ownershipKey(item);
+    if (ownedKeys.has(key)) return true;
+    if (isOwner(item)) return true;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return false;
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('id')
+      .eq('buyer_id', session.user.id)
+      .eq('item_id', String(item.id))
+      .limit(1);
+    if (error) return false;
+    const ok = !!(data && data.length);
+    if (ok) ownedKeys.add(key);
+    return ok;
+  }
+
+  function ownershipKey(item) {
+    return String(item.source || 'catalog') + ':' + String(item.id);
+  }
+
+  async function resolveViaMyStuff(item) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user?.id) return null;
+    const res = await fetch(SUPABASE_URL + '/functions/v1/library-my-stuff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + session.access_token,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ licenseKey: session.user.id }),
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    const items = Array.isArray(body?.items) ? body.items : [];
+    const hit = items.find((row) => String(row.itemId) === String(item.id) && row.downloadUrl);
+    if (!hit?.downloadUrl) return null;
+    const fileRes = await fetch(hit.downloadUrl);
+    if (!fileRes.ok) return null;
+    return await fileRes.text();
+  }
+
+  async function resolveTemplateJson(item) {
+    // Community upload
+    if (item.source === 'community' && item.file_path) {
+      const { data, error } = await supabase.storage
+        .from('pending-submissions')
+        .createSignedUrl(item.file_path, 120);
+      if (!error && data?.signedUrl) {
+        const res = await fetch(data.signedUrl);
+        if (res.ok) return await res.text();
+      }
+      // Fallback: edge function signs with service role (works even if storage RLS lags)
+      const viaFn = await resolveViaMyStuff(item);
+      if (viaFn) return viaFn;
+      throw new Error(
+        error?.message ||
+          'Could not open storage file. Re-run supabase-migrations-20260731030000_buyer_download_storage.sql (updated version), or deploy library-my-stuff.'
+      );
+    }
+
+    // Official / catalog — local texture assets + catalog map
+    await loadCatalogPreviewMap();
+    const meta = lookupCatalogMeta(item);
+    const candidates = [];
+    if (meta && meta.texture) candidates.push(meta.texture);
+    const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
+    if (slug) {
+      candidates.push('assets/basalt-library/' + slug + '.texture.json');
+      if (slug === 'glow') candidates.push('assets/basalt-library/glow-gradient.texture.json');
+      if (slug === 'liquid-glass-ios') candidates.push('assets/basalt-library/liquid-glass.texture.json');
+    }
+    for (const path of candidates) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.text();
+      } catch (_) {}
+    }
+    throw new Error('No .json file found for this listing (animations/bundles may not have a texture file).');
+  }
+
+  async function downloadTemplate(item) {
+    const statusEl = document.getElementById('drawer-pay-status');
+    const setPay = (msg, kind) => {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.className = 'drawer-status' + (kind ? ' ' + kind : '');
+    };
+    const btn = document.getElementById('drawer-download-btn');
+    try {
+      const allowed = await userOwnsItem(item);
+      if (!allowed) {
+        setPay('Buy or get this item first, then download the .json.', 'err');
+        return;
+      }
+      if (btn) btn.disabled = true;
+      setPay('Preparing download…');
+      const text = await resolveTemplateJson(item);
+      // Validate JSON so we don't save HTML error pages
+      JSON.parse(text);
+      const filename = safeFileName(item);
+      triggerBrowserDownload(text, filename);
+      setPay(
+        'Downloaded ' +
+          filename +
+          ' — put it in your app’s assets/basalt-library/ folder, then use the matching PremiumButton / PremiumPanel variant.',
+        'ok'
+      );
+      captureWeb('web_marketplace_download', {
+        item_id: String(item.id),
+        item_source: item.source === 'community' ? 'community' : 'catalog',
+      });
+    } catch (err) {
+      const msg = err?.message || 'Download failed';
+      setPay(
+        /storage|policy|not allowed|row-level|JWT|permission|Could not open/i.test(msg)
+          ? msg + ' — run supabase-migrations-20260731030000_buyer_download_storage.sql so buyers can download after purchase.'
+          : msg,
+        'err'
+      );
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function renderDrawer(item, editing) {
+    const owner = isOwner(item);
+    const src = previewFor(item);
+    const badges = itemBadges(item);
+
+    if (!editing) {
+      const s = saleInfo(item);
+      const price = s.price;
+      const priceLabel = price <= 0 ? 'Free' : '$' + price.toFixed(2);
+      const priceBlock = s.showLabel
+        ? `<p class="drawer-price" style="font-size:28px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em;"><s style="font-size:16px;font-weight:600;opacity:.65;margin-right:8px;">$${s.compare.toFixed(2)}</s>${priceLabel}</p>
+           <p class="drawer-meta" style="margin:-2px 0 8px;color:#ff8a5c;">${s.pct > 0 ? s.pct + '% off' : 'On sale'}</p>`
+        : `<p class="drawer-price" style="font-size:28px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em;">${priceLabel}</p>`;
+      const stockLine =
+        item.source === 'community'
+          ? `<p class="drawer-meta" style="margin:0 0 8px;">Availability: ${escapeHtml(stockLabel(item))}</p>`
+          : '';
+      const soldOut = isSoldOut(item);
+      const canDownload = await userOwnsItem(item);
+      const purchased = await hasPurchasedItem(item);
+      const showDownload = item.type !== 'animation' && item.type !== 'bundle';
+      const buyLabel = owner
+        ? 'Your listing'
+        : soldOut
+          ? 'Sold out'
+          : purchased
+            ? (price <= 0 ? 'Owned' : 'Purchased')
+            : (price <= 0 ? 'Get free' : 'Buy with Stripe — ' + priceLabel);
+      drawerBody.innerHTML = `
+        <div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" /></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${badges}</div>
+        <h2 class="drawer-title" id="drawer-title">${escapeHtml(item.name)}</h2>
+        ${priceBlock}
+        ${stockLine}
+        <p class="drawer-meta">${escapeHtml(item.type)}${item.source === 'community' ? (creatorHandle(item) ? ' · by @' + escapeHtml(creatorHandle(item)) : ' · artist') : ' · Basalt official'}</p>
+        <p class="drawer-desc">${escapeHtml(item.description || 'No description yet.')}</p>
+        ${
+          owner && item._needsScreenshot
+            ? `<p class="drawer-status err" style="display:block;margin:0 0 12px;">We couldn't auto-preview your .json. Upload a screenshot (PNG/JPG) on Submit and re-list, or edit after we add thumb replace.</p>`
+            : ''
+        }
+        <div class="drawer-actions btn-rail btn-rail-fill">
+          <button type="button" class="drawer-btn primary" id="drawer-buy-btn" ${purchased || owner || soldOut ? 'disabled' : ''}>${buyLabel}</button>
+          ${
+            showDownload
+              ? `<button type="button" class="drawer-btn" id="drawer-download-btn" ${canDownload ? '' : 'disabled'} title="${canDownload ? 'Download texture JSON' : 'Available after purchase'}">${canDownload ? 'Download .json' : 'Download after purchase'}</button>`
+              : ''
+          }
+          ${owner ? '<button type="button" class="drawer-btn" id="drawer-edit-btn">Edit listing</button>' : ''}
+        </div>
+        <p class="drawer-status" id="drawer-pay-status"></p>
+        <p class="drawer-meta" style="margin-top:14px;">
+          ${
+            item.type === 'animation' || item.type === 'bundle'
+              ? 'Sign into Basalt with the <strong>same Google or Apple account</strong> you use here → Library → My Stuff. No sync key needed when accounts match.'
+              : canDownload
+                ? 'Download the .json, or open Basalt with the <strong>same Google/Apple account</strong> → Library → My Stuff → Install.'
+                : 'Buy first — we’ll unlock Download .json right after. Or use My Stuff with the same account.'
+          }
+        </p>
+      `;
+      document.getElementById('drawer-edit-btn')?.addEventListener('click', () => renderDrawer(item, true));
+      document.getElementById('drawer-buy-btn')?.addEventListener('click', () => sandboxBuy(item));
+      document.getElementById('drawer-download-btn')?.addEventListener('click', () => downloadTemplate(item));
+      return;
+    }
+
+    const unlimited = isUnlimitedStock(item);
+    const compareVal =
+      item.compare_at_price != null && item.compare_at_price !== ''
+        ? Number(item.compare_at_price)
+        : '';
+    const showDiscount = item.show_discount_label !== false;
+    drawerBody.innerHTML = `
+      <div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" /></div>
+      <p class="eyebrow" style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Edit your listing</p>
+      <div class="drawer-edit">
+        <label>Name</label>
+        <input id="edit-name" value="${escapeHtml(item.name).replace(/"/g, '&quot;')}" />
+        <label>Description</label>
+        <textarea id="edit-desc">${escapeHtml(item.description || '')}</textarea>
+        <label>Category</label>
+        <select id="edit-category">
+          ${['button','panel','shader','texture','other'].map((c) => `<option value="${c}" ${item.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+        <label>Price ($)</label>
+        <input id="edit-price" type="number" min="0" step="1" value="${Number(item.price || 0)}" />
+        <label>Compare-at price (optional — “was $X”)</label>
+        <input id="edit-compare" type="number" min="0" step="1" placeholder="Leave empty for no compare price" value="${compareVal === '' ? '' : compareVal}" />
+        <p class="drawer-meta" style="margin:6px 0 0;font-size:12px;">Set a higher compare-at than the current price to create a discount. Then choose how buyers see it:</p>
+        <label class="check-row">
+          <input type="radio" name="edit-discount-label" id="edit-label-yes" value="1" ${showDiscount ? 'checked' : ''} />
+          <span><strong>Label as discount</strong> — show crossed-out old price and a sale badge</span>
+        </label>
+        <label class="check-row">
+          <input type="radio" name="edit-discount-label" id="edit-label-no" value="0" ${!showDiscount ? 'checked' : ''} />
+          <span><strong>Quiet low price</strong> — only the current price, no sale label (same as if you just priced it low)</span>
+        </label>
+        <label style="margin-top:16px;">Quantity</label>
+        <div class="stock-row">
+          <label class="check-row" style="margin:0">
+            <input type="radio" name="edit-stock-mode" id="edit-stock-unlimited" value="unlimited" ${unlimited ? 'checked' : ''} />
+            <span>Unlimited</span>
+          </label>
+          <label class="check-row" style="margin:0">
+            <input type="radio" name="edit-stock-mode" id="edit-stock-limited" value="limited" ${!unlimited ? 'checked' : ''} />
+            <span>Limited units</span>
+          </label>
+          <input id="edit-stock-qty" type="number" min="0" step="1" style="width:100px;margin:0" placeholder="e.g. 5" value="${unlimited ? '' : (item.stock_remaining != null ? Number(item.stock_remaining) : 5)}" ${unlimited ? 'disabled' : ''} />
+        </div>
+      </div>
+      <div class="drawer-actions">
+        <button type="button" class="drawer-btn primary" id="drawer-save-btn">Save changes</button>
+        <button type="button" class="drawer-btn" id="drawer-cancel-btn">Cancel</button>
+      </div>
+      <p class="drawer-status" id="drawer-status"></p>
+    `;
+
+    const syncStockUi = () => {
+      const lim = document.getElementById('edit-stock-limited')?.checked;
+      const qty = document.getElementById('edit-stock-qty');
+      if (qty) qty.disabled = !lim;
+    };
+    document.getElementById('edit-stock-unlimited')?.addEventListener('change', syncStockUi);
+    document.getElementById('edit-stock-limited')?.addEventListener('change', syncStockUi);
+    document.getElementById('drawer-cancel-btn').addEventListener('click', () => renderDrawer(item, false));
+    document.getElementById('drawer-save-btn').addEventListener('click', () => saveListing(item));
+  }
+
+
+
+  function rememberOpenItem(item, alsoBuy) {
+    if (!item) return;
+    try {
+      sessionStorage.setItem(PENDING_ITEM_KEY, JSON.stringify({
+        id: item.id,
+        source: item.source || 'catalog',
+      }));
+      // only SET the buy flag — never clear it here (openDrawer would wipe it)
+      if (alsoBuy) sessionStorage.setItem(PENDING_BUY_KEY, '1');
+    } catch (_) {}
+  }
+
+  function clearPendingBuy() {
+    try { sessionStorage.removeItem(PENDING_BUY_KEY); } catch (_) {}
+  }
+
+  function setAuthStatus(msg, kind) {
+    const el = document.getElementById('auth-modal-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'auth-status' + (kind ? ' ' + kind : '');
+  }
+
+  function openAuthModal(subtitle) {
+    const root = document.getElementById('auth-modal-root');
+    if (!root) return;
+    const sub = root.querySelector('.auth-sub');
+    if (sub && subtitle) sub.textContent = subtitle + ' Your product stays open after you sign in.';
+    setAuthStatus('');
+    root.hidden = false;
+    requestAnimationFrame(() => root.classList.add('is-open'));
+    document.getElementById('auth-email')?.focus();
+  }
+
+  function closeAuthModal() {
+    const root = document.getElementById('auth-modal-root');
+    if (!root) return;
+    root.classList.remove('is-open');
+    root.hidden = true;
+  }
+
+  async function restorePendingItem(autoBuy) {
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(PENDING_ITEM_KEY) || 'null'); } catch (_) {}
+    if (!pending || !pending.id) return;
+    const item = allItems.find((i) => String(i.id) === String(pending.id) && (!pending.source || i.source === pending.source))
+      || allItems.find((i) => String(i.id) === String(pending.id));
+    if (!item) return;
+    openDrawer(item);
+    const wantBuy = autoBuy || sessionStorage.getItem(PENDING_BUY_KEY) === '1';
+    if (wantBuy && currentUserId) {
+      clearPendingBuy();
+      // slight delay so drawer DOM is ready
+      setTimeout(() => sandboxBuy(item), 200);
+    }
+  }
+
+  async function authEmail(kind) {
+    const email = document.getElementById('auth-email')?.value.trim();
+    const password = document.getElementById('auth-password')?.value;
+    if (!email || !password) {
+      setAuthStatus('Enter email and password.', 'err');
+      return;
+    }
+    setAuthStatus(kind === 'signup' ? 'Creating account…' : 'Signing in…');
+    const fn = kind === 'signup'
+      ? () => supabase.auth.signUp({ email, password })
+      : () => supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await fn();
+    if (error) {
+      setAuthStatus(error.message, 'err');
+      return;
+    }
+    if (kind === 'signup' && !data.session) {
+      setAuthStatus('Account created — if email confirm is on, confirm then log in. Or turn Confirm email OFF in Supabase.', 'err');
+      return;
+    }
+    setAuthStatus('Signed in.', 'ok');
+    closeAuthModal();
+    currentUserId = data.session?.user?.id || currentUserId;
+    // restorePendingItem runs from onAuthStateChange (SIGNED_IN) to avoid double-buy
+  }
+
+  
+  function updateSyncKeyUi(userId) {
+    const btn = document.getElementById('nav-sync-key');
+    if (!btn) return;
+    if (!userId) {
+      btn.hidden = true;
+      btn.classList.remove('is-on');
+      return;
+    }
+    btn.hidden = false;
+    btn.classList.add('is-on');
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(userId);
+        const prev = btn.textContent;
+        btn.textContent = 'Copied sync key';
+        setTimeout(() => { btn.textContent = prev; }, 1600);
+      } catch (_) {
+        prompt('Copy your Basalt sync key:', userId);
+      }
+    };
+  }
+
+  function wireAuthModal() {
+    document.getElementById('auth-modal-close')?.addEventListener('click', closeAuthModal);
+    document.getElementById('auth-modal-backdrop')?.addEventListener('click', closeAuthModal);
+    document.getElementById('auth-login-btn')?.addEventListener('click', () => authEmail('login'));
+    document.getElementById('auth-signup-btn')?.addEventListener('click', () => authEmail('signup'));
+    document.getElementById('auth-google-btn')?.addEventListener('click', async () => {
+      if (location.protocol === 'file:') {
+        setAuthStatus('Open via http://127.0.0.1:3000 — Google needs a real URL.', 'err');
+        return;
+      }
+      // Keep current item for after redirect
+      if (selectedItem) rememberOpenItem(selectedItem, true);
+      setAuthStatus('Redirecting to Google…');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href.split('#')[0].split('?')[0] },
+      });
+      if (error) setAuthStatus(error.message, 'err');
+    });
+    document.getElementById('auth-apple-btn')?.addEventListener('click', async () => {
+      if (location.protocol === 'file:') {
+        setAuthStatus('Open via http://127.0.0.1:3000 — Apple needs a real URL.', 'err');
+        return;
+      }
+      if (selectedItem) rememberOpenItem(selectedItem, true);
+      setAuthStatus('Redirecting to Apple…');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: window.location.href.split('#')[0].split('?')[0] },
+      });
+      if (error) setAuthStatus(error.message, 'err');
+    });
+    document.getElementById('auth-password')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') authEmail('login');
+    });
+  }
+
+  let buyInFlightKey = null;
+
+  async function callCheckoutFn(name, body) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Sign in required');
+    const res = await fetch(SUPABASE_URL + '/functions/v1/' + name, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + session.access_token,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || name + ' failed (' + res.status + ')');
+    }
+    return json;
+  }
+
+  async function finishOwnedPurchase(item, meta) {
+    ownedKeys.add(ownershipKey(item));
+    updateSyncKeyUi((await supabase.auth.getSession()).data.session?.user?.id);
+    await renderDrawer(item, false);
+    const canAutoDl = item.type !== 'animation' && item.type !== 'bundle';
+    if (canAutoDl) {
+      await downloadTemplate(item);
+      const statusEl2 = document.getElementById('drawer-pay-status');
+      if (statusEl2 && statusEl2.className.indexOf('err') === -1) {
+        const prefix = meta?.testMode ? 'Stripe test paid ✓ — ' : 'Purchased ✓ — ';
+        statusEl2.textContent =
+          prefix + statusEl2.textContent.replace(/^Downloaded /, 'downloaded ');
+        statusEl2.className = 'drawer-status ok';
+      }
+    } else {
+      const statusEl2 = document.getElementById('drawer-pay-status');
+      if (statusEl2) {
+        statusEl2.textContent =
+          (meta?.testMode ? 'Stripe test paid ✓ — ' : 'Purchased ✓ — ') +
+          'open Basalt with this same Google/Apple account → Library → My Stuff.';
+        statusEl2.className = 'drawer-status ok';
+      }
+    }
+  }
+
+  async function handleStripeReturn() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('checkout') !== 'success') return;
+    const sessionId = params.get('session_id');
+    if (!sessionId) return;
+    // One confirm per session id (tab refresh / double return)
+    try {
+      const doneKey = 'basalt_cs_done_' + sessionId;
+      if (sessionStorage.getItem(doneKey) === '1') {
+        history.replaceState({}, '', location.pathname + (location.hash || ''));
+        return;
+      }
+      sessionStorage.setItem(doneKey, '1');
+    } catch (_) {}
+    // Clean URL so refresh doesn't re-fire
+    try {
+      const clean = location.pathname + (location.hash || '');
+      history.replaceState({}, '', clean);
+    } catch (_) {}
+
+    try {
+      const conf = await callCheckoutFn('confirm-checkout', { sessionId });
+      captureWeb('web_marketplace_purchase', {
+        item_id: String(conf.itemId || ''),
+        item_source: conf.itemSource === 'community' ? 'community' : 'catalog',
+        amount_cents: conf.amountCents || 0,
+        sandbox: !!conf.testMode,
+        stripe: true,
+      });
+      const item =
+        allItems.find(
+          (i) =>
+            String(i.id) === String(conf.itemId) &&
+            (conf.itemSource === 'community' ? i.source === 'community' : i.source !== 'community')
+        ) || allItems.find((i) => String(i.id) === String(conf.itemId));
+      if (item) {
+        openDrawer(item);
+        await finishOwnedPurchase(item, { testMode: conf.testMode !== false });
+      } else {
+        alert('Payment recorded. Refresh and open the item to download.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Could not confirm Stripe payment');
+    }
+  }
+
+  async function sandboxBuy(item) {
+    // Only hard-block when PostHog is ready AND the flag is explicitly off
+    if (document.documentElement.dataset.phReady === '1' && !isWebFlagEnabled('web_sandbox_checkout')) {
+      const statusEl = document.getElementById('drawer-pay-status');
+      if (statusEl) {
+        statusEl.textContent = 'Checkout temporarily unavailable.';
+        statusEl.className = 'drawer-status err';
+      }
+      captureWeb('web_marketplace_buy_blocked', { reason: 'flag_off' });
+      return;
+    }
+    const statusEl = document.getElementById('drawer-pay-status');
+    const setPay = (msg, kind) => {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.className = 'drawer-status' + (kind ? ' ' + kind : '');
+    };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      rememberOpenItem(item, true);
+      if (!selectedItem || selectedItem.id !== item.id) openDrawer(item);
+      openAuthModal('Sign in to buy this item');
+      return;
+    }
+    const flightKey = String(item.source || 'catalog') + ':' + String(item.id);
+    if (buyInFlightKey === flightKey) return;
+    buyInFlightKey = flightKey;
+    if (isOwner(item)) {
+      buyInFlightKey = null;
+      setPay("You can't buy your own listing.", 'err');
+      return;
+    }
+    if (isSoldOut(item)) {
+      buyInFlightKey = null;
+      setPay('Sold out.', 'err');
+      return;
+    }
+    // Already own → don't open a second Stripe session
+    if (await hasPurchasedItem(item)) {
+      buyInFlightKey = null;
+      setPay('You already own this — download below.', 'ok');
+      await finishOwnedPurchase(item, { testMode: false });
+      return;
+    }
+    const btn = document.getElementById('drawer-buy-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Starting checkout…';
+    }
+
+    const amountCents = Math.round(Number(item.price || 0) * 100);
+    const hasSeller = !!(item.artist_id && item.source === 'community');
+    const split = hasSeller
+      ? splitSaleCents(amountCents, PLATFORM_FEE_BPS)
+      : { amountCents, platformFeeCents: amountCents, sellerNetCents: 0, feeBps: PLATFORM_FEE_BPS };
+
+    // Paid → Stripe Checkout (test or live depending on sk_test / sk_live)
+    if (amountCents > 0) {
+      setPay('Redirecting to Stripe Checkout…');
+      try {
+        const here = location.href.split('#')[0].split('?')[0];
+        const successUrl = here + '?checkout=success&session_id={CHECKOUT_SESSION_ID}';
+        const cancelUrl = here + '?checkout=cancel';
+        const created = await callCheckoutFn('create-checkout', {
+          itemId: String(item.id),
+          itemSource: item.source === 'community' ? 'community' : 'catalog',
+          itemName: item.name,
+          amountCents: split.amountCents,
+          currency: 'usd',
+          sellerId: item.artist_id || null,
+          basaltItemId: item.basalt_item_id || item.slug || null,
+          successUrl,
+          cancelUrl,
+          platformFeeCents: split.platformFeeCents,
+          sellerNetCents: hasSeller ? split.sellerNetCents : 0,
+          feeBps: split.feeBps,
+        });
+        if (!created.url) throw new Error('No Stripe URL returned');
+        window.location.href = created.url;
+        return;
+      } catch (err) {
+        buyInFlightKey = null;
+        if (btn) btn.disabled = false;
+        setPay(
+          (err?.message || 'Stripe Checkout failed') +
+            (/STRIPE_SECRET|not set|404|Failed to fetch/i.test(err?.message || '')
+              ? ' — check Stripe / create-checkout deploy'
+              : ''),
+          'err'
+        );
+        return;
+      }
+    }
+
+    // Free → record entitlement without Stripe
+    setPay('Adding free item…');
+    const row = {
+      buyer_id: session.user.id,
+      buyer_email: session.user.email || null,
+      seller_id: item.artist_id || null,
+      item_id: String(item.id),
+      basalt_item_id: item.basalt_item_id || item.slug || null,
+      item_source: item.source === 'community' ? 'community' : 'catalog',
+      item_name: item.name,
+      amount_cents: 0,
+      platform_fee_cents: 0,
+      seller_net_cents: 0,
+      fee_bps: split.feeBps,
+      currency: 'usd',
+      status: 'sandbox_paid',
+      sandbox: true,
+    };
+
+    let { error } = await supabase.from('purchases').insert(row);
+    if (error && /basalt_item_id/i.test(error.message || '')) {
+      delete row.basalt_item_id;
+      ({ error } = await supabase.from('purchases').insert(row));
+    }
+    if (error && /platform_fee|seller_net|fee_bps|schema cache|column/i.test(error.message || '')) {
+      delete row.platform_fee_cents;
+      delete row.seller_net_cents;
+      delete row.fee_bps;
+      ({ error } = await supabase.from('purchases').insert(row));
+    }
+    if (btn) btn.disabled = false;
+    if (error) {
+      buyInFlightKey = null;
+      setPay('Failed: ' + error.message, 'err');
+      return;
+    }
+    if (item.source === 'community') {
+      try {
+        await supabase.rpc('decrement_submission_stock', { p_item_id: item.id });
+      } catch (_) {}
+    }
+    try { clearPendingBuy(); } catch (_) {}
+    captureWeb('web_marketplace_purchase', {
+      item_id: String(item.id),
+      item_source: item.source === 'community' ? 'community' : 'catalog',
+      amount_cents: 0,
+      sandbox: true,
+    });
+    buyInFlightKey = null;
+    await finishOwnedPurchase(item, { testMode: false });
+  }
+
+  async function saveListing(item) {
+    const statusEl = document.getElementById('drawer-status');
+    const name = document.getElementById('edit-name').value.trim();
+    const description = document.getElementById('edit-desc').value.trim();
+    const category = document.getElementById('edit-category').value;
+    const price = parseFloat(document.getElementById('edit-price').value);
+    const compareRaw = document.getElementById('edit-compare').value.trim();
+    const compare_at_price = compareRaw === '' ? null : parseFloat(compareRaw);
+    const show_discount_label = !!document.getElementById('edit-label-yes')?.checked;
+    const unlimited = !!document.getElementById('edit-stock-unlimited')?.checked;
+    const qtyRaw = document.getElementById('edit-stock-qty')?.value;
+    const stock_remaining = unlimited ? null : Math.max(0, Math.floor(Number(qtyRaw)));
+    if (!name || !description) {
+      statusEl.textContent = 'Name and description are required.';
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      statusEl.textContent = 'Enter a valid price (0 or higher).';
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    if (compare_at_price != null && (!Number.isFinite(compare_at_price) || compare_at_price < 0)) {
+      statusEl.textContent = 'Compare-at must be empty or a valid number.';
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    if (compare_at_price != null && compare_at_price > 0 && compare_at_price < price) {
+      statusEl.textContent = 'Compare-at should be higher than (or equal to) the sale price.';
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    if (!unlimited && !Number.isFinite(stock_remaining)) {
+      statusEl.textContent = 'Enter how many units are available, or choose Unlimited.';
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'drawer-status';
+    const patch = {
+      name,
+      description,
+      category,
+      price,
+      compare_at_price,
+      show_discount_label,
+      stock_unlimited: unlimited,
+      stock_remaining: unlimited ? null : stock_remaining,
+    };
+    let { error } = await supabase
+      .from('submissions')
+      .update(patch)
+      .eq('id', item.id)
+      .eq('artist_id', currentUserId);
+    // Older DBs without discount/stock columns — still save core fields
+    if (error && /compare_at|show_discount|stock_|column|schema/i.test(error.message || '')) {
+      ({ error } = await supabase
+        .from('submissions')
+        .update({ name, description, category, price })
+        .eq('id', item.id)
+        .eq('artist_id', currentUserId));
+      if (!error) {
+        statusEl.textContent =
+          'Saved name/price — run migration 20260804120000_listing_discount_stock.sql to enable discount labels & stock.';
+        statusEl.className = 'drawer-status ok';
+        await loadCatalog();
+        const updated = allItems.find((i) => i.id === item.id && i.source === 'community');
+        if (updated) renderDrawer(updated, false);
+        return;
+      }
+    }
+    if (error) {
+      statusEl.textContent = error.message;
+      statusEl.className = 'drawer-status err';
+      return;
+    }
+    statusEl.textContent = 'Saved.';
+    statusEl.className = 'drawer-status ok';
+    await loadCatalog();
+    const updated = allItems.find((i) => i.id === item.id && i.source === 'community');
+    if (updated) renderDrawer(updated, false);
+  }
+
+  document.getElementById('market-drawer-close')?.addEventListener('click', closeDrawer);
+  document.getElementById('market-drawer-backdrop')?.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('auth-modal-root')?.classList.contains('is-open')) closeAuthModal();
+    else closeDrawer();
+  });
+
+  document.querySelector('[data-filters]').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    activeFilter = btn.dataset.filter;
+    document.querySelectorAll('[data-filter]').forEach((el) => el.classList.toggle('is-active', el === btn));
+    typeDescEl.textContent = typeDescriptions[activeFilter] || '';
+    render();
+  });
+
+  document.querySelector('[data-search]').addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    render();
+  });
+
+  document.getElementById('market-sort')?.addEventListener('change', (e) => {
+    sortMode = e.target.value || 'newest';
+    render();
+  });
+  const applyPriceFilter = () => {
+    const minEl = document.getElementById('price-min');
+    const maxEl = document.getElementById('price-max');
+    const minV = minEl?.value === '' || minEl?.value == null ? null : Number(minEl.value);
+    const maxV = maxEl?.value === '' || maxEl?.value == null ? null : Number(maxEl.value);
+    priceMin = Number.isFinite(minV) ? minV : null;
+    priceMax = Number.isFinite(maxV) ? maxV : null;
+    render();
+  };
+  document.getElementById('price-min')?.addEventListener('input', applyPriceFilter);
+  document.getElementById('price-max')?.addEventListener('input', applyPriceFilter);
+
+  async function loadCatalog() {
+    setState('loading');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUserId = session?.user?.id || null;
+      updateSyncKeyUi(currentUserId);
+
+      // preview_url is optional — older DBs don't have the column yet.
+      let catalogRes = await supabase
+        .from('catalog_items')
+        .select('id, name, type, description, price, sort_order, created_at, slug')
+        .order('type', { ascending: true })
+        .order('sort_order', { ascending: true });
+
+      if (catalogRes.error) {
+        // Older DB without slug — retry without it
+        if (/slug/i.test(catalogRes.error.message || '')) {
+          catalogRes = await supabase
+            .from('catalog_items')
+            .select('id, name, type, description, price, sort_order, created_at')
+            .order('type', { ascending: true })
+            .order('sort_order', { ascending: true });
+        }
+        if (catalogRes.error) {
+          console.error(catalogRes.error);
+          setState('error');
+          return;
+        }
+      }
+
+      let pendingRes = await supabase
+        .from('submissions')
+        .select('id, artist_id, name, description, category, price, status, created_at, artist_email, file_path, visibility, compare_at_price, show_discount_label, stock_unlimited, stock_remaining')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (pendingRes.error && /compare_at|show_discount|stock_|column|schema/i.test(pendingRes.error.message || '')) {
+        pendingRes = await supabase
+          .from('submissions')
+          .select('id, artist_id, name, description, category, price, status, created_at, artist_email, file_path, visibility')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+      }
+
+      if (pendingRes.error && /visibility/i.test(pendingRes.error.message || '')) {
+        pendingRes = await supabase
+          .from('submissions')
+          .select('id, artist_id, name, description, category, price, status, created_at, artist_email, file_path')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+      }
+
+      // Best-effort: attach preview_url if the column exists
+      try {
+        const withPreview = await supabase
+          .from('submissions')
+          .select('id, preview_url')
+          .eq('status', 'pending');
+        if (!withPreview.error && withPreview.data && pendingRes.data) {
+          const map = Object.fromEntries(withPreview.data.map((r) => [r.id, r.preview_url]));
+          pendingRes = {
+            ...pendingRes,
+            data: pendingRes.data.map((r) => ({ ...r, preview_url: map[r.id] || null })),
+          };
+        }
+      } catch (_) {}
+
+      const official = (catalogRes.data || []).map((row) => ({
+        ...row,
+        source: 'official',
+        sortKey: row.sort_order ?? 0,
+        basalt_item_id: row.slug || null,
+      }));
+
+      const community = (pendingRes.error ? [] : pendingRes.data || [])
+        .filter((row) => !row.visibility || row.visibility === 'public')
+        .map((row) => ({
+        id: row.id,
+        artist_id: row.artist_id,
+        name: row.name,
+        type: categoryToType(row.category),
+        category: row.category,
+        description: row.description,
+        price: row.price,
+        compare_at_price: row.compare_at_price != null ? row.compare_at_price : null,
+        show_discount_label: row.show_discount_label !== false,
+        stock_unlimited: row.stock_unlimited !== false,
+        stock_remaining: row.stock_remaining != null ? row.stock_remaining : null,
+        preview_url: row.preview_url || null,
+        file_path: row.file_path || null,
+        source: 'community',
+        sortKey: -1,
+        created_at: row.created_at,
+        artist_email: row.artist_email,
+        download_count: 0,
+      }));
+
+      if (pendingRes.error) {
+        console.warn('[marketplace] pending submissions:', pendingRes.error.message);
+      }
+
+      allItems = [...community, ...official];
+      try {
+        const { data: counts } = await supabase.rpc('get_download_counts');
+        if (Array.isArray(counts)) {
+          const map = Object.fromEntries(counts.map((r) => [String(r.item_id), Number(r.download_count) || 0]));
+          allItems.forEach((it) => {
+            it.download_count = map[String(it.id)] || 0;
+          });
+        }
+      } catch (_) {
+        /* RPC optional until migration runs */
+      }
+      render();
+      hydratePreviews(allItems);
+    } catch (err) {
+      console.error(err);
+      setState('error');
+    }
+  }
+
+  wireAuthModal();
+
+  async function openItemFromQuery() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('item') || params.get('open');
+    if (!id) return;
+    const item =
+      allItems.find((i) => String(i.id) === String(id)) ||
+      allItems.find((i) => String(i.basalt_item_id || i.slug || '') === String(id));
+    if (!item) return;
+    openDrawer(item);
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('item');
+      url.searchParams.delete('open');
+      const q = url.searchParams.toString();
+      history.replaceState({}, '', url.pathname + (q ? '?' + q : '') + (url.hash || ''));
+    } catch (_) {}
+  }
+
+  async function bootMarket() {
+    await loadCatalog();
+    const params = new URLSearchParams(location.search);
+    if (params.get('checkout') === 'cancel') {
+      try {
+        history.replaceState({}, '', location.pathname + (location.hash || ''));
+      } catch (_) {}
+    }
+    await handleStripeReturn();
+    await openItemFromQuery();
+    await restorePendingItem(false);
+  }
+
+  bootMarket();
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) identifyWebUser(session.user);
+    else if (event === 'SIGNED_OUT') resetWebUser();
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      if (event === 'SIGNED_IN') closeAuthModal();
+      await loadCatalog();
+      await openItemFromQuery();
+      // After Google redirect or email login, reopen the product + finish buy if pending
+      await restorePendingItem(event === 'SIGNED_IN');
+      return;
+    }
+    await loadCatalog();
+    await openItemFromQuery();
+  });
+</script>
+
+</body>
+</html>

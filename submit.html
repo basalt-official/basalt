@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Submit to Basalt Library</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="validator.js"></script>
+<script src="marketplace-preview.js"></script>
+<link rel="stylesheet" href="basalt-ui.css">
+<style>
+  :root {
+    --bg: #0b0b0b;
+    --surface: #141414;
+    --surface-raised: #1c1c1c;
+    --border: #262626;
+    --orange: #ff6a00;
+    --orange-dim: #7a3a12;
+    --text: #f2f2f2;
+    --text-muted: #8a8a8a;
+    --mono: "SF Mono", "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+
+  .shell {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 64px 24px 100px;
+  }
+
+  .mark {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+
+  .mark-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .settings-link {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 6px 12px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .settings-link:hover {
+    color: var(--text);
+    border-color: #3a3a3a;
+  }
+
+  .mark-chip {
+    width: 10px;
+    height: 24px;
+    background: var(--orange);
+    border-radius: 2px;
+  }
+
+  .mark-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin: 0 0 8px;
+  }
+
+  .sub {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0 0 40px;
+    max-width: 46ch;
+  }
+
+  .sub strong { color: var(--text); font-weight: 600; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+  }
+
+  .panel + .panel { margin-top: 16px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin: 0 0 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 18px 0 6px;
+  }
+
+  label:first-of-type { margin-top: 0; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    padding: 11px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--orange);
+  }
+
+  textarea { resize: vertical; min-height: 72px; }
+
+  .price-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .price-row span {
+    font-family: var(--mono);
+    color: var(--text-muted);
+  }
+
+  .dropzone {
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    padding: 22px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--orange);
+  }
+
+  .dropzone input { display: none; }
+
+  .dropzone-label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .dropzone-label strong { color: var(--text); }
+
+  .filename {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--orange);
+  }
+
+  button {
+    width: 100%;
+    background: var(--orange);
+    color: #0b0b0b;
+    border: none;
+    border-radius: 3px;
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 24px;
+  }
+
+  button:disabled {
+    background: var(--orange-dim);
+    color: #7a7a7a;
+    cursor: not-allowed;
+  }
+
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    margin-top: 12px;
+  }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-top: 14px;
+    line-height: 1.6;
+    display: none;
+    white-space: pre-wrap;
+  }
+
+  .status.show { display: block; }
+  .status.ok { color: #6fd67f; }
+  .status.err { color: #ff6a6a; }
+  .status.pending { color: var(--text-muted); }
+
+  .session-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .session-row span strong { color: var(--text); }
+
+  .signout {
+    background: none;
+    border: none;
+    color: var(--orange);
+    font-size: 13px;
+    cursor: pointer;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  #authView, #formView { display: none; }
+  #authView.show, #formView.show { display: block; }
+
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .oauth-google {
+    width: 100%;
+    margin-top: 4px;
+    background: #fff;
+    color: #1f1f1f;
+    border: 1px solid #dadce0;
+    border-radius: 3px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .oauth-google:hover { background: #f7f8f8; }
+  .oauth-google:disabled { opacity: 0.6; cursor: not-allowed; }
+  .oauth-apple {
+    width: 100%;
+    margin-top: 10px;
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    border-radius: 3px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .oauth-apple:hover { background: #1a1a1a; }
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0 14px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .auth-divider::before, .auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  button.linkish, .linkish {
+    background: transparent !important;
+    border: none !important;
+    color: var(--orange) !important;
+    padding: 0 !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    text-align: left;
+  }
+  button.linkish:hover { text-decoration: underline; }
+  #resetView { display: none; }
+  #resetView.show { display: block; }
+  .hint code { font-size: 11px; color: var(--text); }
+  .page-footer {
+    margin-top: 48px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 22px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .page-footer p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .page-footer .foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  .page-footer a {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .page-footer a:hover { color: var(--text); }
+
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+
+<div class="shell">
+  <div class="mark">
+    <div class="mark-left">
+      <div class="mark-chip"></div>
+      <div class="mark-text">Basalt Library</div>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <a class="settings-link" href="terms.html">Terms</a>
+      <a class="settings-link" href="privacy.html">Privacy</a>
+      <a class="settings-link" href="marketplace.html">Marketplace</a>
+    </div>
+  </div>
+
+  <h1>Submit a component</h1>
+  <p class="sub">
+    List a button, panel, or texture skin in Basalt's in-editor Library.
+    Your submission goes into a review queue &mdash; nothing goes live until
+    we've checked it over. <strong>You set the price and category.</strong>
+  </p>
+
+  <!-- AUTH VIEW -->
+  <div id="authView" class="panel">
+    <p class="eyebrow">Sign in</p>
+    <button type="button" id="googleBtn" class="oauth-google">Continue with Google</button>
+    <button type="button" id="appleBtn" class="oauth-apple">Continue with Apple</button>
+    <div class="auth-divider"><span>or email</span></div>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+    <label for="password" style="margin-top:14px">Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+    <p class="hint">Use <code>http://127.0.0.1:…</code> (not file://). Google + reset emails need that URL in Supabase Auth → URL Configuration.</p>
+    <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+      <button type="button" id="loginBtn" style="flex:1;">Log in</button>
+      <button type="button" id="signupBtn" class="signout" style="flex:1;">Sign up</button>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; justify-content:space-between;">
+      <button type="button" id="forgotBtn" class="linkish">Forgot / change password</button>
+      <button type="button" id="sendLinkBtn" class="linkish">Magic link</button>
+    </div>
+    <div id="authStatus" class="status"></div>
+  </div>
+
+  <!-- SET NEW PASSWORD (after email reset link) -->
+  <div id="resetView" class="panel">
+    <p class="eyebrow">New password</p>
+    <p class="hint" style="margin:0 0 14px">Choose a new password for this account.</p>
+    <label for="newPassword">New password</label>
+    <input type="password" id="newPassword" placeholder="••••••••" autocomplete="new-password" />
+    <label for="newPassword2" style="margin-top:14px">Confirm</label>
+    <input type="password" id="newPassword2" placeholder="••••••••" autocomplete="new-password" />
+    <button type="button" id="savePasswordBtn" style="margin-top:16px; width:100%;">Save password</button>
+    <div id="resetStatus" class="status"></div>
+  </div>
+
+  <!-- FORM VIEW -->
+  <div id="formView" class="panel">
+    <div class="session-row">
+      <span>Signed in as <strong id="userEmail"></strong></span>
+      <button class="signout" id="signOutBtn">Sign out</button>
+    </div>
+
+    <p class="eyebrow">Component details</p>
+
+    <label for="itemName">Name</label>
+    <input type="text" id="itemName" placeholder="e.g. Shattered Glass Green" />
+
+    <label for="itemDesc">Description</label>
+    <textarea id="itemDesc" placeholder="What it is, how it renders, anything a buyer should know."></textarea>
+
+    <div class="grid2">
+      <div>
+        <label for="itemCategory">Category</label>
+        <select id="itemCategory">
+          <option value="button">Button skin</option>
+          <option value="panel">Panel / glass surface</option>
+          <option value="shader">Shader effect</option>
+          <option value="texture">Texture (faceted / gradient)</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label for="itemPrice">Suggested price</label>
+        <div class="price-row">
+          <span>$</span>
+          <input type="number" id="itemPrice" min="0" step="1" placeholder="6" />
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <div>
+        <label>Quantity</label>
+        <div class="price-row" style="gap:12px;flex-wrap:wrap;align-items:center">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:500;margin:0;font-size:13px">
+            <input type="radio" name="stockMode" id="stockUnlimited" value="unlimited" checked /> Unlimited
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:500;margin:0;font-size:13px">
+            <input type="radio" name="stockMode" id="stockLimited" value="limited" /> Limited
+          </label>
+          <input type="number" id="itemStockQty" min="1" step="1" placeholder="e.g. 5" disabled style="width:100px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font:inherit" />
+        </div>
+        <p class="hint" style="margin-top:6px">How many sales before sold out. Unlimited = open stock.</p>
+      </div>
+    </div>
+
+    <label>Component file</label>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".json" />
+      <div class="dropzone-label"><strong>Click to choose</strong> or drop a .json file</div>
+      <div class="filename" id="filename"></div>
+    </div>
+    <label>Thumbnail</label>
+    <div class="dropzone" id="previewDropzone" style="margin-top:0;padding:16px;">
+      <input type="file" id="previewInput" accept="image/png,image/jpeg,image/webp" />
+      <div class="dropzone-label"><strong>Screenshot optional if JSON previews</strong> — PNG/JPG. If you skip it, we try to build a thumb from your texture JSON. If that fails, a screenshot is required.</div>
+      <div class="filename" id="previewFilename"></div>
+    </div>
+    <p class="hint">Texture / shader JSON only. You keep <strong>90%</strong>. Buyers can purchase even before you add a bank — Basalt holds funds until you set up payouts (one form, after your first listing).</p>
+
+    <div id="payoutNudge" style="display:none;margin:14px 0;padding:14px 16px;border-radius:12px;border:1px solid rgba(109,206,160,.35);background:rgba(109,206,160,.08)">
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.45">
+        <strong>Optional now:</strong> add a bank so future sales can pay you automatically.
+        Skip it for now — sales still work; money is held until you’re ready.
+      </p>
+      <button type="button" id="setupPayoutsBtn" style="margin:0">Add bank for payouts</button>
+    </div>
+
+    <button id="submitBtn">Submit for review</button>
+    <div id="formStatus" class="status"></div>
+  </div>
+
+  <footer class="page-footer">
+    <p>By submitting you agree to our Terms of Use.</p>
+    <div class="foot-links">
+      <a href="terms.html">Terms of Use</a>
+      <a href="privacy.html">Privacy Policy</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+  // ── Fill these in from your Supabase project settings ──
+  const SUPABASE_URL = "https://ztgneiealwvwrttovqxb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0Z25laWVhbHd2d3J0dG92cXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDU5NTIsImV4cCI6MjEwMDkyMTk1Mn0.YUxM1Sr3fomESNe7pcHtU9kToAZU8i4uT3ZAHdFQaFI";
+  // ─────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const ph = () => window.BasaltPH;
+
+  const authView = document.getElementById("authView");
+  const formView = document.getElementById("formView");
+  const authStatus = document.getElementById("authStatus");
+  const formStatus = document.getElementById("formStatus");
+  const userEmailEl = document.getElementById("userEmail");
+
+  let selectedFile = null;
+  let selectedPreviewFile = null;
+
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = "status show " + kind;
+  }
+
+
+  const resetView = document.getElementById("resetView");
+  const resetStatus = document.getElementById("resetStatus");
+
+  function siteOriginOk() {
+    return location.protocol === "http:" || location.protocol === "https:";
+  }
+
+  function redirectToHere() {
+    return window.location.href.split("#")[0].split("?")[0];
+  }
+
+  function showResetOnly() {
+    authView.classList.remove("show");
+    formView.classList.remove("show");
+    resetView.classList.add("show");
+  }
+
+  async function callEdgeFn(name, body) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) throw new Error("Sign in required");
+    const res = await fetch(SUPABASE_URL + "/functions/v1/" + name, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + session.access_token,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body || {}),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || name + " failed (" + res.status + ")");
+    }
+    return json;
+  }
+
+  let payoutsReady = false;
+
+  async function refreshPayoutNudge() {
+    const nudge = document.getElementById("payoutNudge");
+    if (!nudge) return;
+    try {
+      const st = await callEdgeFn("stripe-connect-status", {});
+      payoutsReady = !!st.chargesEnabled;
+      nudge.style.display = payoutsReady ? "none" : "block";
+      const btn = document.getElementById("setupPayoutsBtn");
+      if (btn) btn.textContent = st.linked && !st.chargesEnabled ? "Continue Stripe setup" : "Set up payouts with Stripe";
+    } catch {
+      payoutsReady = false;
+      nudge.style.display = "block";
+    }
+  }
+
+  async function startPayoutSetup() {
+    setStatus(formStatus, "Opening Stripe…", "pending");
+    try {
+      const here = redirectToHere();
+      const returnUrl = here.replace(/submit\.html.*/i, "dashboard.html") + "?connect=return#payouts";
+      const refreshUrl = here.replace(/submit\.html.*/i, "dashboard.html") + "?connect=refresh#payouts";
+      const created = await callEdgeFn("stripe-connect-onboard", { returnUrl, refreshUrl });
+      if (created.alreadyReady) {
+        payoutsReady = true;
+        document.getElementById("payoutNudge").style.display = "none";
+        setStatus(formStatus, "Payouts already ready — you can submit.", "ok");
+        return;
+      }
+      if (!created.url) throw new Error("No Stripe onboarding URL");
+      window.location.href = created.url;
+    } catch (err) {
+      setStatus(formStatus, err?.message || "Could not open Stripe", "err");
+    }
+  }
+
+  async function refreshView() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (resetView.classList.contains("show") && session) return;
+    resetView.classList.remove("show");
+    if (session) {
+      authView.classList.remove("show");
+      formView.classList.add("show");
+      userEmailEl.textContent = session.user.email;
+      ph()?.identify(session.user);
+      refreshPayoutNudge();
+    } else {
+      formView.classList.remove("show");
+      authView.classList.add("show");
+      payoutsReady = false;
+    }
+  }
+
+  async function authEmailPassword(kind) {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if (!email || !password) {
+      setStatus(authStatus, "Enter email and password.", "err");
+      return;
+    }
+    setStatus(authStatus, kind === "signup" ? "Creating account…" : "Signing in…", "pending");
+    const fn = kind === "signup"
+      ? () => sb.auth.signUp({ email, password })
+      : () => sb.auth.signInWithPassword({ email, password });
+    const { data, error } = await fn();
+    if (error) {
+      setStatus(authStatus, "Error: " + error.message, "err");
+      return;
+    }
+    if (kind === "signup" && !data.session) {
+      setStatus(authStatus, "Signed up, but Supabase still wants email confirm (and email sending may be broken). Fix: Authentication → Providers → Email → Confirm email OFF. Then Log in.", "err");
+      return;
+    }
+    setStatus(authStatus, "Signed in.", "ok");
+  }
+
+  document.getElementById("loginBtn").addEventListener("click", () => authEmailPassword("login"));
+  document.getElementById("signupBtn").addEventListener("click", () => authEmailPassword("signup"));
+
+  document.getElementById("googleBtn").addEventListener("click", async () => {
+    if (!siteOriginOk()) {
+      setStatus(authStatus, "Google sign-in can't run from file:// — serve this folder: python3 -m http.server 3000 then open http://127.0.0.1:3000/submit.html", "err");
+      return;
+    }
+    setStatus(authStatus, "Redirecting to Google…", "pending");
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: redirectToHere(), queryParams: { access_type: "offline", prompt: "select_account" } },
+    });
+    if (error) setStatus(authStatus, "Error: " + error.message, "err");
+  });
+
+  document.getElementById("appleBtn")?.addEventListener("click", async () => {
+    if (!siteOriginOk()) {
+      setStatus(authStatus, "Apple sign-in can't run from file:// — use http://127.0.0.1:3000/submit.html", "err");
+      return;
+    }
+    setStatus(authStatus, "Redirecting to Apple…", "pending");
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: redirectToHere() },
+    });
+    if (error) setStatus(authStatus, "Error: " + error.message, "err");
+  });
+
+  document.getElementById("forgotBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) {
+      setStatus(authStatus, "Enter your email above, then click Forgot / change password.", "err");
+      return;
+    }
+    if (!siteOriginOk()) {
+      setStatus(authStatus, "Password reset emails need http://localhost — not file://.", "err");
+      return;
+    }
+    setStatus(authStatus, "Sending password reset email…", "pending");
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectToHere(),
+    });
+    if (error) {
+      setStatus(authStatus, "Error: " + error.message + " — if this keeps failing, configure SMTP or use Supabase's built-in email in Auth settings.", "err");
+    } else {
+      setStatus(authStatus, "Check your inbox for the change-password link. Open it on this same site URL.", "ok");
+    }
+  });
+
+  document.getElementById("sendLinkBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) return;
+    if (!siteOriginOk()) {
+      setStatus(authStatus, "Magic links can't finish on file:// — use http://127.0.0.1:…", "err");
+      return;
+    }
+    setStatus(authStatus, "Sending link…", "pending");
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectToHere() },
+    });
+    if (error) {
+      setStatus(authStatus, "Error: " + error.message, "err");
+    } else {
+      setStatus(authStatus, "Check your email for a login link (same site URL).", "ok");
+    }
+  });
+
+  document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+    const a = document.getElementById("newPassword").value;
+    const b = document.getElementById("newPassword2").value;
+    if (!a || a.length < 6) {
+      setStatus(resetStatus, "Password must be at least 6 characters.", "err");
+      return;
+    }
+    if (a !== b) {
+      setStatus(resetStatus, "Passwords don't match.", "err");
+      return;
+    }
+    setStatus(resetStatus, "Saving…", "pending");
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) {
+      setStatus(resetStatus, "Error: " + error.message, "err");
+      return;
+    }
+    setStatus(resetStatus, "Password updated. You're signed in.", "ok");
+    resetView.classList.remove("show");
+    refreshView();
+  });
+
+  document.getElementById("signOutBtn").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    ph()?.reset();
+    refreshView();
+  });
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const filenameEl = document.getElementById("filename");
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (e) => {
+    selectedFile = e.target.files[0] || null;
+    filenameEl.textContent = selectedFile ? selectedFile.name : "";
+  });
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("drag");
+    selectedFile = e.dataTransfer.files[0] || null;
+    filenameEl.textContent = selectedFile ? selectedFile.name : "";
+  });
+
+
+  const previewDropzone = document.getElementById("previewDropzone");
+  const previewInput = document.getElementById("previewInput");
+  const previewFilenameEl = document.getElementById("previewFilename");
+  if (previewDropzone && previewInput) {
+    previewDropzone.addEventListener("click", () => previewInput.click());
+    previewInput.addEventListener("change", (e) => {
+      selectedPreviewFile = e.target.files[0] || null;
+      previewFilenameEl.textContent = selectedPreviewFile ? selectedPreviewFile.name : "";
+    });
+  }
+
+  async function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ""));
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById("stockUnlimited")?.addEventListener("change", () => {
+    const qty = document.getElementById("itemStockQty");
+    if (qty) qty.disabled = true;
+  });
+  document.getElementById("stockLimited")?.addEventListener("change", () => {
+    const qty = document.getElementById("itemStockQty");
+    if (qty) {
+      qty.disabled = false;
+      if (!qty.value) qty.value = "5";
+      qty.focus();
+    }
+  });
+
+  document.getElementById("submitBtn").addEventListener("click", async () => {
+    const name = document.getElementById("itemName").value.trim();
+    const description = document.getElementById("itemDesc").value.trim();
+    const category = document.getElementById("itemCategory").value;
+    const price = parseFloat(document.getElementById("itemPrice").value);
+    const stockUnlimited = !!document.getElementById("stockUnlimited")?.checked;
+    const stockQty = Math.max(0, Math.floor(Number(document.getElementById("itemStockQty")?.value || 0)));
+
+    if (!name || !description || !price || !selectedFile) {
+      setStatus(formStatus, "Fill in every field and choose a file.", "err");
+      return;
+    }
+    if (!stockUnlimited && !(stockQty > 0)) {
+      setStatus(formStatus, "Enter units available (e.g. 5) or choose Unlimited.", "err");
+      return;
+    }
+
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.disabled = true;
+    setStatus(formStatus, "Checking file…", "pending");
+
+    const fileText = await selectedFile.text();
+    const itemNameVal = document.getElementById("itemName").value.trim();
+    let previewUrl = null;
+    if (selectedPreviewFile) {
+      // Soft client cap only — not a Supabase hard limit. Thumbnails stay lightweight.
+      if (selectedPreviewFile.size > 2 * 1024 * 1024) {
+        setStatus(formStatus, "Preview image must be under 2MB.", "err");
+        submitBtn.disabled = false;
+        return;
+      }
+      previewUrl = await fileToDataUrl(selectedPreviewFile);
+    } else {
+      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(fileText, itemNameVal);
+      if (built && built.ok) {
+        previewUrl = built.url;
+      } else {
+        setStatus(
+          formStatus,
+          window.BasaltMarketPreview?.SCREENSHOT_REQUIRED_MSG ||
+            "Upload a screenshot — we couldn't auto-preview your .json.",
+          "err"
+        );
+        submitBtn.disabled = false;
+        return;
+      }
+    }
+    const { valid, errors, warnings } = validateSubmissionJson(fileText);
+    if (!valid) {
+      setStatus(formStatus, "Can't submit — fix these:\n" + errors.map((e) => "• " + e).join("\n"), "err");
+      submitBtn.disabled = false;
+      return;
+    }
+    // Unknown / future fields are warnings only — still upload; review decides.
+    if (warnings && warnings.length) {
+      console.info("[basalt] submission warnings:", warnings);
+    }
+
+    setStatus(formStatus, "Uploading…", "pending");
+
+    const { data: { session } } = await sb.auth.getSession();
+    const userId = session.user.id;
+    const path = `${userId}/${Date.now()}-${selectedFile.name}`;
+
+    const { error: uploadError } = await sb.storage
+      .from("pending-submissions")
+      .upload(path, selectedFile);
+
+    if (uploadError) {
+      setStatus(formStatus, "Upload failed: " + uploadError.message, "err");
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const submitterEmail =
+      session.user.email ||
+      session.user.user_metadata?.email ||
+      session.user.user_metadata?.full_name ||
+      null;
+
+    const row = {
+      artist_id: userId,
+      name,
+      description,
+      category,
+      price,
+      file_path: path,
+      status: "pending",
+      stock_unlimited: stockUnlimited,
+      stock_remaining: stockUnlimited ? null : stockQty,
+      show_discount_label: true,
+      compare_at_price: null,
+    };
+    if (previewUrl) row.preview_url = previewUrl;
+    if (submitterEmail) row.artist_email = submitterEmail;
+
+    let insertError = null;
+    let inserted = null;
+    ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
+    // Older DBs may lack artist_email — retry without it.
+    if (insertError && /artist_email/i.test(insertError.message || "")) {
+      delete row.artist_email;
+      ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
+    }
+    if (insertError && /stock_|compare_at|show_discount|column|schema/i.test(insertError.message || "")) {
+      delete row.stock_unlimited;
+      delete row.stock_remaining;
+      delete row.show_discount_label;
+      delete row.compare_at_price;
+      ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
+    }
+
+    if (insertError) {
+      const hint = /artist_email|schema cache|column/i.test(insertError.message || "")
+        ? "\n\nFix: Supabase → SQL → run supabase/migrations/20260730120000_library_submissions.sql (adds artist_email)."
+        : "";
+      setStatus(formStatus, "Submission failed: " + insertError.message + hint, "err");
+    } else {
+      const newId = inserted?.id;
+      ph()?.capture("web_submit_created", { category: category || null, listing_id: newId || null });
+      const needPayouts = price > 0 && !payoutsReady;
+      setStatus(
+        formStatus,
+        needPayouts
+          ? "Submitted — optional next: add a bank so you can cash out (sales work either way)…"
+          : newId
+            ? "Submitted — opening your dashboard so you can find this listing…"
+            : "Submitted — opening dashboard…",
+        "ok"
+      );
+      const dest = needPayouts
+        ? "dashboard.html?connect=nudge#payouts"
+        : newId
+          ? "dashboard.html?listing=" + encodeURIComponent(newId) + "#products"
+          : "dashboard.html#products";
+      setTimeout(() => {
+        window.location.href = dest;
+      }, 700);
+      return;
+    }
+    submitBtn.disabled = false;
+  });
+
+  document.getElementById("setupPayoutsBtn")?.addEventListener("click", () => startPayoutSetup());
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      showResetOnly();
+      return;
+    }
+    refreshView();
+  });
+  refreshView();
+</script>
+</body>
+</html>

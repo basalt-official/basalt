@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Basalt</title>
+<meta name="description" content="Privacy Policy for Basalt — how we collect and use data for the editor, marketplace, and analytics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#0a0a0a; --panel:#131313; --border:#232323; --text:#f2f2f0; --text-dim:#8a8a86; --accent:#ff6a3d; }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:Inter,sans-serif; line-height:1.65; }
+  a{ color:var(--accent); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  .wrap{ max-width:720px; margin:0 auto; padding:0 28px 80px; }
+  nav{ padding:26px 0; border-bottom:1px solid var(--border); margin-bottom:48px; }
+  nav .wrap{ max-width:1120px; display:flex; justify-content:space-between; align-items:center; padding-bottom:0; }
+  .logo{ font-weight:700; font-size:19px; color:var(--text); text-decoration:none; }
+  .nav-links a{ color:var(--text-dim); margin-left:22px; font-size:14px; text-decoration:none; }
+  .nav-links a:hover{ color:var(--text); }
+  h1{ font-size:clamp(28px,4vw,40px); font-weight:800; letter-spacing:-0.02em; margin:0 0 10px; }
+  .meta{ color:var(--text-dim); font-size:14px; margin:0 0 40px; }
+  h2{ font-size:18px; font-weight:700; margin:36px 0 12px; }
+  p,li{ color:var(--text-dim); font-size:15px; }
+  ul{ padding-left:1.2em; }
+  .note{ margin-top:40px; padding:16px 18px; border:1px solid var(--border); border-radius:3px; background:var(--panel); font-size:13px; color:var(--text-dim); }
+  footer{ border-top:1px solid var(--border); padding:28px 0; margin-top:48px; }
+  footer .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; max-width:1120px; padding-bottom:0; }
+  footer p{ margin:0; font-size:13px; }
+  footer a{ color:var(--text-dim); margin-left:18px; font-size:13px; }
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="index.html">basalt</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Marketplace</a>
+      <a href="terms.html">Terms</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1>Privacy Policy</h1>
+  <p class="meta">Last updated: July 31, 2026 · Covers the Basalt extension and related websites (marketplace, submit, dashboard).</p>
+
+  <p>This policy explains what we collect, why, and your choices. Basalt is built for developers; we try to collect only what we need to run the product.</p>
+
+  <h2>1. Who we are</h2>
+  <p>Basalt (“we”) operates the Basalt VS Code / Cursor extension and associated web apps. Contact: <a href="mailto:basalt.support@gmail.com">basalt.support@gmail.com</a>.</p>
+
+  <h2>2. What we collect</h2>
+  <ul>
+    <li><strong>Account data</strong> — email, name (if provided), auth provider IDs when you sign in with email, Google, or Apple.</li>
+    <li><strong>Marketplace data</strong> — listings you submit, purchases, payout requests, sync keys tied to your user id.</li>
+    <li><strong>Usage analytics</strong> — product events (e.g. page views, install clicks, purchases) via PostHog. We avoid putting emails or source-code contents in event properties.</li>
+    <li><strong>Technical logs</strong> — extension diagnostics may include error messages needed to fix preview failures (not your full project unless you paste it to us).</li>
+    <li><strong>Payment data</strong> — when real checkout is enabled, card details are handled by our payment processor (e.g. Stripe), not stored on our servers as full card numbers.</li>
+  </ul>
+  <p>The editor runs on your machine. We do not intentionally upload your entire codebase to Basalt servers for editing.</p>
+
+  <h2>3. How we use data</h2>
+  <ul>
+    <li>Provide and improve Basalt, Marketplace, Submit, and Dashboard</li>
+    <li>Authenticate you and sync Marketplace purchases into the extension</li>
+    <li>Process artist payouts and prevent fraud / abuse</li>
+    <li>Understand product usage (PostHog) and fix bugs</li>
+    <li>Comply with law and enforce our Terms</li>
+  </ul>
+
+  <h2>4. Analytics (PostHog)</h2>
+  <p>We use PostHog (US-hosted) for product analytics and feature flags on the website and, where enabled, the extension. PostHog may set cookies or local storage identifiers. You can block trackers in your browser; core editor features that do not depend on analytics still work.</p>
+
+  <h2>5. Sign-in providers</h2>
+  <p>If you use Google or Apple Sign In, those companies process your login according to their policies. We receive a verified identity token / profile fields needed to create your Basalt session.</p>
+
+  <h2>6. Sharing</h2>
+  <p>We share data with processors who help us run the service, including:</p>
+  <ul>
+    <li>Supabase (auth, database, file storage)</li>
+    <li>PostHog (analytics)</li>
+    <li>Payment processors when paid checkout is enabled</li>
+    <li>Hosting / CDN providers for the website</li>
+  </ul>
+  <p>We do not sell your personal information. We may disclose data if required by law or to protect rights and safety.</p>
+
+  <h2>7. Retention</h2>
+  <p>We keep account and marketplace records while your account is active and as needed for sales history, abuse prevention, and legal obligations. You can ask us to delete your account data; some records (e.g. completed purchases) may be retained in anonymized or limited form.</p>
+
+  <h2>8. Security</h2>
+  <p>We use industry-standard providers and access controls. No method of transmission or storage is 100% secure.</p>
+
+  <h2>9. Children</h2>
+  <p>Basalt is not directed at children under 16. Do not use the service if you are under the age required in your country.</p>
+
+  <h2>10. Your choices</h2>
+  <ul>
+    <li>Update profile info in the Dashboard settings where available</li>
+    <li>Sign out / stop using the product anytime</li>
+    <li>Email us to request access, correction, or deletion of personal data we hold</li>
+    <li>Use browser controls to limit analytics cookies</li>
+  </ul>
+  <p>Depending on where you live (e.g. EEA/UK/California), you may have additional rights. Contact us to exercise them.</p>
+
+  <h2>11. International transfers</h2>
+  <p>We and our processors may process data in the United States and other countries. By using Basalt you understand that your data may be transferred to those locations.</p>
+
+  <h2>12. Changes</h2>
+  <p>We may update this policy. The “Last updated” date will change when we do. Continued use means you accept the updated policy.</p>
+
+  <h2>13. Contact</h2>
+  <p><a href="mailto:basalt.support@gmail.com">basalt.support@gmail.com</a></p>
+
+  <div class="note">Starter privacy policy for beta — not a substitute for legal counsel. Review before App Store / payment / GDPR-heavy launches.</div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Basalt</p>
+    <div>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="index.html">Home</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

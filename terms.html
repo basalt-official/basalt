@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terms of Use — Basalt</title>
+<meta name="description" content="Terms of Use for Basalt, the React Native / Expo visual editor and marketplace.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#0a0a0a; --panel:#131313; --border:#232323; --text:#f2f2f0; --text-dim:#8a8a86; --accent:#ff6a3d; }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:Inter,sans-serif; line-height:1.65; }
+  a{ color:var(--accent); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  .wrap{ max-width:720px; margin:0 auto; padding:0 28px 80px; }
+  nav{ padding:26px 0; border-bottom:1px solid var(--border); margin-bottom:48px; }
+  nav .wrap{ max-width:1120px; display:flex; justify-content:space-between; align-items:center; padding-bottom:0; }
+  .logo{ font-weight:700; font-size:19px; color:var(--text); text-decoration:none; }
+  .nav-links a{ color:var(--text-dim); margin-left:22px; font-size:14px; text-decoration:none; }
+  .nav-links a:hover{ color:var(--text); }
+  h1{ font-size:clamp(28px,4vw,40px); font-weight:800; letter-spacing:-0.02em; margin:0 0 10px; }
+  .meta{ color:var(--text-dim); font-size:14px; margin:0 0 40px; }
+  h2{ font-size:18px; font-weight:700; margin:36px 0 12px; }
+  p,li{ color:var(--text-dim); font-size:15px; }
+  ul{ padding-left:1.2em; }
+  .note{ margin-top:40px; padding:16px 18px; border:1px solid var(--border); border-radius:3px; background:var(--panel); font-size:13px; color:var(--text-dim); }
+  footer{ border-top:1px solid var(--border); padding:28px 0; margin-top:48px; }
+  footer .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; max-width:1120px; padding-bottom:0; }
+  footer p{ margin:0; font-size:13px; }
+  footer a{ color:var(--text-dim); margin-left:18px; font-size:13px; }
+</style>
+<script type="module" src="posthog-web.js"></script>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="index.html">basalt</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Marketplace</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1>Terms of Use</h1>
+  <p class="meta">Last updated: July 31, 2026 · Applies to Basalt (the VS Code / Cursor extension), basaltweb marketplace, Submit, and Dashboard.</p>
+
+  <p>By using Basalt (“we”, “us”, “Basalt”), you agree to these Terms. If you do not agree, do not use the product.</p>
+
+  <h2>1. What Basalt is</h2>
+  <p>Basalt is a visual editor and phone preview for Expo / React Native apps inside VS Code or Cursor, plus an optional web marketplace for skins and related assets. Basalt is offered as a beta product and may change, break, or go offline without notice.</p>
+
+  <h2>2. Accounts</h2>
+  <ul>
+    <li>You may need an account (email, Google, or Apple) for Marketplace, Submit, Dashboard, and sync features.</li>
+    <li>You are responsible for activity under your account and for keeping credentials secure.</li>
+    <li>Provide accurate information. Do not impersonate others or create accounts for abuse.</li>
+  </ul>
+
+  <h2>3. The editor &amp; your code</h2>
+  <ul>
+    <li>You own your app source code. Basalt edits files you choose to open in your project.</li>
+    <li>You are responsible for reviewing changes before shipping. Preview is not a substitute for device testing.</li>
+    <li>Some native iOS/Android modules (for example AdMob) cannot run in Basalt’s web preview. That limitation is expected.</li>
+  </ul>
+
+  <h2>4. Marketplace &amp; submissions</h2>
+  <ul>
+    <li>Artists may submit texture / component assets for review. We may approve, reject, hide, or remove listings at our discretion.</li>
+    <li>You must only upload content you have rights to. No malware, scraped secrets, or infringing material.</li>
+    <li>By submitting, you grant Basalt a license to host, preview, distribute, and display your listing so buyers can install it through Basalt.</li>
+    <li>You keep ownership of your original assets, subject to that license and any license you state on the listing.</li>
+    <li>Paid checkout is processed by Stripe. Basalt’s platform fee (currently <strong>10%</strong> of gross sale price unless we publish otherwise) applies; artists receive the remainder after fees and any payment-processor costs we disclose. Payouts may be manual during beta.</li>
+  </ul>
+
+  <h2>5. Refunds (digital marketplace)</h2>
+  <p>Marketplace items are <strong>digital goods</strong> (for example texture / skin JSON and related installable assets). Once delivered, they generally cannot be “returned.”</p>
+  <ul>
+    <li><strong>Default:</strong> All sales are final after successful payment and delivery of the digital file (or entitlement to download / install via Basalt My Stuff).</li>
+    <li><strong>We may refund</strong> within <strong>14 days</strong> of purchase when you email <a href="mailto:basalt.support@gmail.com">basalt.support@gmail.com</a> with your account email, item name, and approximate purchase time, and one of the following is true:
+      <ul>
+        <li>You were charged more than once for the same item (duplicate payment).</li>
+        <li>Payment succeeded but you could not download or install the file because of a Basalt / marketplace defect we can confirm in our logs.</li>
+        <li>The listing was materially misdescribed (wrong asset type) and you contacted us before relying on the file in a shipped app.</li>
+      </ul>
+    </li>
+    <li><strong>We generally will not refund</strong> because you changed your mind, the skin does not match your taste, you already downloaded the file successfully, or your Expo / React Native project is incompatible with how you chose to apply the asset.</li>
+    <li>Approved refunds are issued to the original payment method via Stripe. Artist payouts for refunded sales may be reversed or withheld.</li>
+    <li>Stripe test-mode / sandbox charges are not real money and are not refundable as cash.</li>
+  </ul>
+  <p>How we decide: we review purchase records, payment status, and delivery signals (for example download events and install / My Stuff activity). A refund for “not delivered” requires that our records do not show a successful delivery. Downloading or installing the file counts as delivery even if you later delete the file.</p>
+
+  <h2>6. Acceptable use</h2>
+  <p>Do not: abuse the service, scrape or attack our systems, spam listings, reverse-engineer to steal others’ paid assets, or use Basalt for illegal activity.</p>
+
+  <h2>7. Intellectual property</h2>
+  <p>Basalt’s name, branding, extension code, and official catalog items belong to us or our licensors. Your project code and your original submissions remain yours, except for licenses granted above.</p>
+
+  <h2>8. Disclaimers</h2>
+  <p>Basalt is provided <strong>“as is”</strong> during beta, without warranties of any kind. We do not guarantee uninterrupted service, perfect source edits, marketplace sales, or compatibility with every Expo / React Native setup.</p>
+
+  <h2>9. Limitation of liability</h2>
+  <p>To the maximum extent allowed by law, Basalt and its operators are not liable for indirect, incidental, special, or consequential damages, or for loss of data, profits, or goodwill arising from use of the product. Our total liability for any claim is limited to the greater of amounts you paid us in the prior 3 months or USD $50.</p>
+
+  <h2>10. Termination</h2>
+  <p>You may stop using Basalt anytime. We may suspend or terminate access for Terms violations, abuse, or operational reasons. Provisions that should survive (IP, liability limits, licenses already granted for sold items) will survive.</p>
+
+  <h2>11. Changes</h2>
+  <p>We may update these Terms. Continued use after changes means you accept the updated Terms. Material changes will be reflected by the “Last updated” date on this page.</p>
+
+  <h2>12. Contact</h2>
+  <p>Questions and refund requests: <a href="mailto:basalt.support@gmail.com">basalt.support@gmail.com</a></p>
+
+  <div class="note">This page is a practical starter policy for a beta product, not formal legal advice. Have a lawyer review before relying on it for compliance, Apple/Google requirements, or paid launches.</div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Basalt</p>
+    <div>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="index.html">Home</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
