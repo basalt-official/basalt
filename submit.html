@@ -473,17 +473,58 @@
 
     <label>Component file</label>
     <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" accept=".json" />
-      <div class="dropzone-label"><strong>Click to choose</strong> or drop a .json file</div>
+      <input type="file" id="fileInput" accept=".json,.texture.json,.sksl,application/json,text/plain" />
+      <div class="dropzone-label"><strong>Click to choose</strong> or drop a <code>.texture.json</code>, <code>.json</code>, or raw <code>.sksl</code> shader</div>
       <div class="filename" id="filename"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">
+      Allowed: Basalt skin packs (<code>.json</code> / <code>.texture.json</code>) and React Native Skia shaders (<code>.sksl</code>).
+      <strong>Not accepted:</strong> <code>.tsx</code> / <code>.ts</code> / <code>.jsx</code> / React components, or Figma/Blender source (<code>.fig</code>, <code>.blend</code>, …).
+      Raw SkSL is validated and converted into an installable Basalt pack automatically. Shadertoy GLSL must be ported to SkSL first.
+    </p>
+    <div id="skslOptions" style="display:none;margin:10px 0 18px;padding:13px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised)">
+      <label for="skslTarget" style="margin-top:0">Apply shader to</label>
+      <select id="skslTarget">
+        <option value="button">Button</option>
+        <option value="panel">Panel / section</option>
+      </select>
+      <p class="hint" style="margin:8px 0 0">
+        Basalt detects <code>time</code>, <code>touch</code>, and device-tilt uniforms. A shader using <code>uniform shader image</code> is automatically packaged as a panel because it needs the optical backdrop renderer.
+      </p>
+    </div>
+    <div style="margin:12px 0 18px;padding:13px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised)">
+      <label for="privateTest" style="display:flex;align-items:flex-start;gap:10px;margin:0;cursor:pointer">
+        <input type="checkbox" id="privateTest" checked style="margin-top:3px" />
+        <span>
+          <strong>Private test upload</strong><br />
+          <span class="hint">Only your signed-in account can see this in Basalt Library → My Stuff. It will not appear in Browse or the public marketplace.</span>
+        </span>
+      </label>
+    </div>
+    <div style="margin:0 0 18px;padding:13px 14px;border:1px dashed var(--border);border-radius:10px">
+      <strong style="font-size:13px">Need a file to test?</strong>
+      <p class="hint" style="margin:6px 0 8px">Download one of these real Basalt packs, then choose it above.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px">
+        <a href="test-files/private-glow-button.texture.json" download>Glow button JSON</a>
+        <a href="test-files/private-glass-panel.texture.json" download>Optical liquid glass JSON</a>
+        <a href="test-files/upload-gate/a.sksl" download>Sample raw SkSL</a>
+      </div>
+      <details style="margin-top:10px">
+        <summary class="hint" style="cursor:pointer">Test rejected file messages</summary>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:8px">
+          <a href="test-files/upload-gate/x.riv" download>x.riv</a>
+          <a href="test-files/upload-gate/design.fig" download>design.fig</a>
+          <a href="test-files/upload-gate/component.tsx" download>component.tsx</a>
+        </div>
+      </details>
     </div>
     <label>Thumbnail</label>
     <div class="dropzone" id="previewDropzone" style="margin-top:0;padding:16px;">
-      <input type="file" id="previewInput" accept="image/png,image/jpeg,image/webp" />
-      <div class="dropzone-label"><strong>Screenshot optional if JSON previews</strong> — PNG/JPG. If you skip it, we try to build a thumb from your texture JSON. If that fails, a screenshot is required.</div>
+      <input type="file" id="previewInput" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" />
+      <div class="dropzone-label"><strong>Screenshot optional if JSON previews</strong> — PNG/JPG/WebP. If you skip it, we try to build a thumb from your texture JSON. If that fails, a screenshot is required.</div>
       <div class="filename" id="previewFilename"></div>
     </div>
-    <p class="hint">Texture / shader JSON only. You keep <strong>90%</strong>. Buyers can purchase even before you add a bank — Basalt holds funds until you set up payouts (one form, after your first listing).</p>
+    <p class="hint">You keep <strong>90%</strong>. Buyers can purchase even before you add a bank — Basalt holds funds until you set up payouts (one form, after your first listing).</p>
 
     <div id="payoutNudge" style="display:none;margin:14px 0;padding:14px 16px;border-radius:12px;border:1px solid rgba(109,206,160,.35);background:rgba(109,206,160,.08)">
       <p style="margin:0 0 10px;font-size:14px;line-height:1.45">
@@ -522,6 +563,7 @@
   const userEmailEl = document.getElementById("userEmail");
 
   let selectedFile = null;
+  let selectedFileKind = null;
   let selectedPreviewFile = null;
 
   function setStatus(el, text, kind) {
@@ -574,12 +616,12 @@
     try {
       const st = await callEdgeFn("stripe-connect-status", {});
       payoutsReady = !!st.chargesEnabled;
-      nudge.style.display = payoutsReady ? "none" : "block";
+      nudge.style.display = payoutsReady || isPrivateTestUpload() ? "none" : "block";
       const btn = document.getElementById("setupPayoutsBtn");
       if (btn) btn.textContent = st.linked && !st.chargesEnabled ? "Continue Stripe setup" : "Set up payouts with Stripe";
     } catch {
       payoutsReady = false;
-      nudge.style.display = "block";
+      nudge.style.display = isPrivateTestUpload() ? "none" : "block";
     }
   }
 
@@ -743,19 +785,71 @@
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const filenameEl = document.getElementById("filename");
+  const skslOptions = document.getElementById("skslOptions");
+  const skslTarget = document.getElementById("skslTarget");
+
+  function isPrivateTestUpload() {
+    return !!document.getElementById("privateTest")?.checked;
+  }
+
+  function syncSubmissionMode() {
+    const privateTest = isPrivateTestUpload();
+    const btn = document.getElementById("submitBtn");
+    if (btn) btn.textContent = privateTest ? "Save private test" : "Submit for review";
+    const nudge = document.getElementById("payoutNudge");
+    if (nudge) nudge.style.display = privateTest || payoutsReady ? "none" : "block";
+  }
+
+  document.getElementById("privateTest")?.addEventListener("change", syncSubmissionMode);
+  syncSubmissionMode();
+
+  function clearComponentFile() {
+    selectedFile = null;
+    selectedFileKind = null;
+    if (fileInput) fileInput.value = "";
+    if (filenameEl) filenameEl.textContent = "";
+    if (skslOptions) skslOptions.style.display = "none";
+  }
+
+  function takeComponentFile(file) {
+    if (!file) {
+      clearComponentFile();
+      return;
+    }
+    const gate =
+      typeof validateSubmissionFileName === "function"
+        ? validateSubmissionFileName(file.name)
+        : { ok: true, errors: [], warnings: [] };
+    if (!gate.ok) {
+      clearComponentFile();
+      setStatus(formStatus, gate.errors.join("\n"), "err");
+      return;
+    }
+    selectedFile = file;
+    selectedFileKind = gate.kind || "texture-json";
+    filenameEl.textContent = file.name;
+    if (skslOptions) skslOptions.style.display = selectedFileKind === "sksl" ? "block" : "none";
+    if (selectedFileKind === "sksl" && skslTarget) {
+      const category = document.getElementById("itemCategory")?.value;
+      if (category === "button" || category === "panel") skslTarget.value = category;
+    }
+    if (gate.warnings && gate.warnings.length) {
+      setStatus(formStatus, gate.warnings.join("\n"), "pending");
+    } else {
+      setStatus(formStatus, "", "");
+    }
+  }
 
   dropzone.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => {
-    selectedFile = e.target.files[0] || null;
-    filenameEl.textContent = selectedFile ? selectedFile.name : "";
+    takeComponentFile(e.target.files[0] || null);
   });
   dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
   dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
   dropzone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropzone.classList.remove("drag");
-    selectedFile = e.dataTransfer.files[0] || null;
-    filenameEl.textContent = selectedFile ? selectedFile.name : "";
+    takeComponentFile(e.dataTransfer.files[0] || null);
   });
 
 
@@ -765,8 +859,25 @@
   if (previewDropzone && previewInput) {
     previewDropzone.addEventListener("click", () => previewInput.click());
     previewInput.addEventListener("change", (e) => {
-      selectedPreviewFile = e.target.files[0] || null;
-      previewFilenameEl.textContent = selectedPreviewFile ? selectedPreviewFile.name : "";
+      const f = e.target.files[0] || null;
+      if (!f) {
+        selectedPreviewFile = null;
+        previewFilenameEl.textContent = "";
+        return;
+      }
+      const gate =
+        typeof validatePreviewFileName === "function"
+          ? validatePreviewFileName(f.name)
+          : { ok: true, errors: [] };
+      if (!gate.ok) {
+        selectedPreviewFile = null;
+        previewInput.value = "";
+        previewFilenameEl.textContent = "";
+        setStatus(formStatus, gate.errors.join("\n"), "err");
+        return;
+      }
+      selectedPreviewFile = f;
+      previewFilenameEl.textContent = f.name;
     });
   }
 
@@ -797,10 +908,11 @@
     const description = document.getElementById("itemDesc").value.trim();
     const category = document.getElementById("itemCategory").value;
     const price = parseFloat(document.getElementById("itemPrice").value);
+    const privateTest = isPrivateTestUpload();
     const stockUnlimited = !!document.getElementById("stockUnlimited")?.checked;
     const stockQty = Math.max(0, Math.floor(Number(document.getElementById("itemStockQty")?.value || 0)));
 
-    if (!name || !description || !price || !selectedFile) {
+    if (!name || !description || !Number.isFinite(price) || price < 0 || !selectedFile) {
       setStatus(formStatus, "Fill in every field and choose a file.", "err");
       return;
     }
@@ -809,12 +921,65 @@
       return;
     }
 
+    const nameGate =
+      typeof validateSubmissionFileName === "function"
+        ? validateSubmissionFileName(selectedFile.name)
+        : { ok: true, errors: [] };
+    if (!nameGate.ok) {
+      setStatus(formStatus, nameGate.errors.join("\n"), "err");
+      clearComponentFile();
+      return;
+    }
+
     const submitBtn = document.getElementById("submitBtn");
     submitBtn.disabled = true;
     setStatus(formStatus, "Checking file…", "pending");
 
-    const fileText = await selectedFile.text();
+    const originalText = await selectedFile.text();
     const itemNameVal = document.getElementById("itemName").value.trim();
+    let fileText = originalText;
+    let uploadBody = selectedFile;
+    let uploadFileName = selectedFile.name;
+    let skslBuild = null;
+
+    if (nameGate.kind === "sksl") {
+      skslBuild = typeof buildTextureJsonFromSkSL === "function"
+        ? buildTextureJsonFromSkSL(originalText, {
+            id: itemNameVal || selectedFile.name,
+            fileName: selectedFile.name,
+            target: skslTarget?.value || "button",
+          })
+        : { valid: false, errors: ["The SkSL packager did not load. Refresh this page and try again."], warnings: [] };
+      if (!skslBuild.valid) {
+        setStatus(
+          formStatus,
+          "Can't submit this SkSL:\n" + skslBuild.errors.map((e) => "• " + e).join("\n"),
+          "err"
+        );
+        submitBtn.disabled = false;
+        return;
+      }
+      fileText = skslBuild.json;
+      uploadFileName = skslBuild.fileName;
+      uploadBody = new Blob([fileText], { type: "application/json" });
+      if (skslBuild.warnings?.length) {
+        console.info("[basalt] SkSL packaging warnings:", skslBuild.warnings);
+      }
+    } else if (
+      // Extra guard: reject React/source pasted as .json
+      /^\s*(import\s+|export\s+|from\s+['\"]react['\"]|function\s+\w+\s*\(|const\s+\w+\s*=\s*\()/m.test(
+        fileText.slice(0, 4000)
+      )
+    ) {
+      setStatus(
+        formStatus,
+        "This looks like JavaScript/TypeScript source, not a Basalt texture JSON. Export a .texture.json skin pack instead of uploading component code.",
+        "err"
+      );
+      submitBtn.disabled = false;
+      clearComponentFile();
+      return;
+    }
     let previewUrl = null;
     if (selectedPreviewFile) {
       // Soft client cap only — not a Supabase hard limit. Thumbnails stay lightweight.
@@ -854,11 +1019,14 @@
 
     const { data: { session } } = await sb.auth.getSession();
     const userId = session.user.id;
-    const path = `${userId}/${Date.now()}-${selectedFile.name}`;
+    const safeFileName = uploadFileName
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "basalt-texture.json";
+    const path = `${userId}/${Date.now()}-${safeFileName}`;
 
     const { error: uploadError } = await sb.storage
       .from("pending-submissions")
-      .upload(path, selectedFile);
+      .upload(path, uploadBody, { contentType: "application/json" });
 
     if (uploadError) {
       setStatus(formStatus, "Upload failed: " + uploadError.message, "err");
@@ -880,6 +1048,7 @@
       price,
       file_path: path,
       status: "pending",
+      visibility: privateTest ? "private" : "public",
       stock_unlimited: stockUnlimited,
       stock_remaining: stockUnlimited ? null : stockQty,
       show_discount_label: true,
@@ -891,9 +1060,14 @@
     let insertError = null;
     let inserted = null;
     ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
-    // Older DBs may lack artist_email — retry without it.
+    // Older DBs may lack artist_email — retry without it. Private uploads never
+    // fall back to a public row: the visibility migration is required first.
     if (insertError && /artist_email/i.test(insertError.message || "")) {
       delete row.artist_email;
+      ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
+    }
+    if (insertError && /visibility/i.test(insertError.message || "") && !privateTest) {
+      delete row.visibility;
       ({ data: inserted, error: insertError } = await sb.from("submissions").insert(row).select("id").single());
     }
     if (insertError && /stock_|compare_at|show_discount|column|schema/i.test(insertError.message || "")) {
@@ -905,23 +1079,40 @@
     }
 
     if (insertError) {
-      const hint = /artist_email|schema cache|column/i.test(insertError.message || "")
+      // Do not leave an orphaned private object when the database migration or
+      // insert fails. The signed-in user's storage policy permits this cleanup.
+      await sb.storage.from("pending-submissions").remove([path]);
+      const hint = /visibility/i.test(insertError.message || "")
+        ? "\n\nPrivate tests need supabase/migrations/20260804130000_private_submission_drafts.sql. The incomplete upload was rolled back and nothing was published."
+        : /artist_email|schema cache|column/i.test(insertError.message || "")
         ? "\n\nFix: Supabase → SQL → run supabase/migrations/20260730120000_library_submissions.sql (adds artist_email)."
         : "";
       setStatus(formStatus, "Submission failed: " + insertError.message + hint, "err");
     } else {
       const newId = inserted?.id;
-      ph()?.capture("web_submit_created", { category: category || null, listing_id: newId || null });
-      const needPayouts = price > 0 && !payoutsReady;
+      ph()?.capture("web_submit_created", {
+        category: category || null,
+        listing_id: newId || null,
+        source_format: nameGate.kind === "sksl" ? "sksl" : "texture-json",
+        visibility: privateTest ? "private" : "public",
+      });
+      const needPayouts = !privateTest && price > 0 && !payoutsReady;
       setStatus(
         formStatus,
-        needPayouts
+        privateTest
+          ? "Saved privately. In Basalt, open Library → My Stuff and press Refresh. Only this signed-in account can load it."
+          : needPayouts
           ? "Submitted — optional next: add a bank so you can cash out (sales work either way)…"
           : newId
             ? "Submitted — opening your dashboard so you can find this listing…"
             : "Submitted — opening dashboard…",
         "ok"
       );
+      if (privateTest) {
+        clearComponentFile();
+        submitBtn.disabled = false;
+        return;
+      }
       const dest = needPayouts
         ? "dashboard.html?connect=nudge#payouts"
         : newId

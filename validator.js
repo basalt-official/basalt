@@ -5,6 +5,9 @@
 //   WARNINGS     = unknown fields, new shapes, odd shaders — still submit;
 //                  humans decide at review time.
 //
+// File types: allowlist only. Reject React/source/design-tool files at the gate —
+// Apply is manifest + assets, not freeform .tsx in someone's app.
+//
 // Do NOT hardcode today's entire texture schema as the only allowed future.
 // Known renderers get typed checks when fields look familiar; anything else
 // is flagged, not rejected.
@@ -31,6 +34,366 @@
     /base64,/i,
   ]
 
+  /** Primary skin/component upload — raw SkSL is normalized to a JSON pack before storage. */
+  const ALLOWED_COMPONENT_EXTS = ['.json', '.texture.json', '.sksl']
+  /** Thumbnail only. */
+  const ALLOWED_PREVIEW_EXTS = ['.png', '.jpg', '.jpeg', '.webp']
+  /** Clear rejects with tailored copy. */
+  const REJECTED_CODE_EXTS = ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.cjs', '.vue', '.svelte']
+  const REJECTED_DESIGN_EXTS = ['.fig', '.blend', '.psd', '.ai', '.sketch', '.xd']
+  /** Named for later: not Apply-ready yet — hard reject with roadmap message. */
+  const FUTURE_ASSET_EXTS = ['.riv', '.svg', '.lottie']
+
+  /** File picker accept= for the component dropzone. */
+  const COMPONENT_FILE_ACCEPT = '.json,.texture.json,.sksl,application/json,text/plain'
+  const PREVIEW_FILE_ACCEPT = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp'
+
+  function fileBasename(name) {
+    return String(name || '').trim().split(/[/\\]/).pop() || ''
+  }
+
+  function fileExtLower(name) {
+    var base = fileBasename(name).toLowerCase()
+    if (base.endsWith('.texture.json')) return '.texture.json'
+    var i = base.lastIndexOf('.')
+    return i >= 0 ? base.slice(i) : ''
+  }
+
+  /**
+   * Hard gate before reading file contents.
+   * @returns {{ ok: boolean, errors: string[], warnings: string[], kind?: string }}
+   */
+  function validateSubmissionFileName(fileName) {
+    var errors = []
+    var warnings = []
+    var ext = fileExtLower(fileName)
+    var base = fileBasename(fileName)
+
+    if (!base) {
+      return { ok: false, errors: ['Choose a component file.'], warnings: [] }
+    }
+
+    if (REJECTED_CODE_EXTS.indexOf(ext) >= 0) {
+      return {
+        ok: false,
+        errors: [
+          '"' +
+            base +
+            '" is app source code (' +
+            ext +
+            '). Basalt skins are texture / shader JSON packs — not React components. Export a .texture.json (or .json) instead of uploading .tsx/.ts/.jsx/.js.',
+        ],
+        warnings: [],
+      }
+    }
+
+    if (REJECTED_DESIGN_EXTS.indexOf(ext) >= 0) {
+      return {
+        ok: false,
+        errors: [
+          '"' +
+            base +
+            '" is a design-tool source file. Export PNG/WebP textures and a Basalt .texture.json from Figma/Blender/etc. — we do not ingest .fig/.blend/.psd directly.',
+        ],
+        warnings: [],
+      }
+    }
+
+    if (FUTURE_ASSET_EXTS.indexOf(ext) >= 0) {
+      var tip =
+        ext === '.riv' || ext === '.svg'
+          ? 'Rive/SVG apply is planned — for now submit a .texture.json skin pack.'
+          : 'This format is not accepted for Apply yet — use a .texture.json pack.'
+      return {
+        ok: false,
+        errors: ['"' + base + '" (' + ext + ') is not accepted on submit yet. ' + tip],
+        warnings: [],
+      }
+    }
+
+    if (ALLOWED_COMPONENT_EXTS.indexOf(ext) < 0) {
+      return {
+        ok: false,
+        errors: [
+          '"' +
+            base +
+            '" is not an allowed component type. Upload .sksl or a Basalt .json/.texture.json pack. Not accepted: app source code, zips, or design-tool originals.',
+        ],
+        warnings: [],
+      }
+    }
+
+    if (ext === '.sksl') {
+      return {
+        ok: true,
+        errors: [],
+        warnings: [
+          'Raw SkSL will be validated and packaged into an installable .texture.json automatically.'
+        ],
+        kind: 'sksl',
+      }
+    }
+
+    if (!base.toLowerCase().endsWith('.texture.json') && ext === '.json') {
+      warnings.push(
+        'Prefer naming skins "*.texture.json" so Library install maps cleanly — plain .json still works if the schema is valid.'
+      )
+    }
+
+    return { ok: true, errors: [], warnings: warnings, kind: 'texture-json' }
+  }
+
+  function stripSkSLComments(source) {
+    return String(source || '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+  }
+
+  function collectSkSLUniforms(source) {
+    var code = stripSkSLComments(source)
+    var found = []
+    var pattern = /\buniform\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*;/g
+    var match
+    while ((match = pattern.exec(code))) {
+      found.push({ type: match[1], name: match[2] })
+    }
+    return found
+  }
+
+  function skslTypeAllowed(actual, allowed) {
+    return allowed.indexOf(actual) >= 0
+  }
+
+  /**
+   * Validate the subset of SkSL that Basalt's current RuntimeEffect hosts can bind.
+   * This is deliberately strict: accepting an unknown uniform would create a pack
+   * that installs successfully but cannot render reliably.
+   */
+  function validateSubmissionSkSL(rawText) {
+    var errors = []
+    var warnings = []
+    var source = typeof rawText === 'string' ? rawText : ''
+    var code = stripSkSLComments(source)
+
+    if (!source.trim()) {
+      return { valid: false, errors: ['Shader file is empty.'], warnings: [] }
+    }
+    if (source.length > MAX_SHADER_CHARS) {
+      return {
+        valid: false,
+        errors: [
+          'Shader is ' + source.length + ' characters — over the ' + MAX_SHADER_CHARS + ' character cap.'
+        ],
+        warnings: [],
+      }
+    }
+    if (!MAIN_FN_PATTERN.test(code)) {
+      errors.push('SkSL must define `half4 main(float2 xy)` (the parameter name may differ).')
+    }
+
+    var shadertoyTokens = []
+    ;[
+      ['mainImage', /\bmainImage\s*\(/],
+      ['iResolution', /\biResolution\b/],
+      ['iTime', /\biTime\b/],
+      ['iMouse', /\biMouse\b/],
+      ['iChannel', /\biChannel\d*\b/],
+      ['sampler2D', /\bsampler2D\b/],
+      ['gl_FragColor', /\bgl_FragColor\b/],
+    ].forEach(function (entry) {
+      if (entry[1].test(code)) shadertoyTokens.push(entry[0])
+    })
+    if (shadertoyTokens.length) {
+      errors.push(
+        'This still contains Shadertoy/GLSL names (' +
+          shadertoyTokens.join(', ') +
+          '). Port them to Basalt SkSL before submitting.'
+      )
+    }
+
+    var uniforms = collectSkSLUniforms(source)
+    var seen = Object.create(null)
+    uniforms.forEach(function (uniform) {
+      if (seen[uniform.name]) errors.push('Uniform "' + uniform.name + '" is declared more than once.')
+      seen[uniform.name] = true
+    })
+
+    var childShaders = uniforms.filter(function (uniform) { return uniform.type === 'shader' })
+    var optical = childShaders.length > 0
+    childShaders.forEach(function (uniform) {
+      if (uniform.name !== 'image') {
+        errors.push(
+          'Child shader "' + uniform.name + '" is unsupported. The optical panel host provides one child named `image`.'
+        )
+      }
+    })
+    if (childShaders.length > 1) {
+      errors.push('Only one child shader is supported by the current optical panel host.')
+    }
+
+    var regularUniforms = {
+      resolution: ['float2', 'half2'],
+      time: ['float', 'half'],
+      touch: ['float2', 'half2'],
+      tiltX: ['float', 'half'],
+      tiltY: ['float', 'half'],
+    }
+    var opticalUniforms = {
+      image: ['shader'],
+      resolution: ['float2', 'half2'],
+      cornerRadius: ['float', 'half'],
+      thickness: ['float', 'half'],
+      refractiveIndex: ['float', 'half'],
+      baseDepth: ['float', 'half'],
+      maxRefraction: ['float', 'half'],
+      dispersion: ['float', 'half'],
+      tint: ['float3', 'half3'],
+      tintStrength: ['float', 'half'],
+      highlightStrength: ['float', 'half'],
+    }
+    var contract = optical ? opticalUniforms : regularUniforms
+    uniforms.forEach(function (uniform) {
+      var allowed = contract[uniform.name]
+      if (!allowed) {
+        errors.push(
+          'Uniform "' + uniform.name + '" is not supplied by Basalt\'s ' +
+            (optical ? 'optical panel' : 'button/panel shader') + ' host.'
+        )
+      } else if (!skslTypeAllowed(uniform.type, allowed)) {
+        errors.push(
+          'Uniform "' + uniform.name + '" uses ' + uniform.type +
+            '; expected ' + allowed.join(' or ') + '.'
+        )
+      }
+    })
+
+    if (optical && !seen.image) {
+      errors.push('Optical shaders must declare `uniform shader image`.')
+    }
+    if (!seen.resolution) {
+      warnings.push('No `resolution` uniform was found. This is valid only if the effect is size-independent.')
+    }
+    if (/\bdFdx\s*\(|\bdFdy\s*\(/.test(code)) {
+      warnings.push('Screen derivatives may not be portable across every React Native Skia backend.')
+    }
+    if (/\bfor\s*\(|\bwhile\s*\(/.test(code)) {
+      warnings.push('Contains a loop — reviewers should verify it has a fixed, bounded iteration count.')
+    }
+    scanSuspicious(source, warnings, 'Shader source')
+
+    var inputs = []
+    if (!optical) {
+      if (seen.time) inputs.push('time')
+      if (seen.touch) inputs.push('touch')
+      if (seen.tiltX || seen.tiltY) inputs.push('deviceTilt')
+      if (!inputs.length) inputs.push('none')
+    }
+    return {
+      valid: errors.length === 0,
+      errors: errors,
+      warnings: warnings,
+      kind: optical ? 'optical' : 'procedural',
+      inputs: inputs,
+    }
+  }
+
+  function slugifySubmissionId(value) {
+    var slug = String(value || '')
+      .toLowerCase()
+      .replace(/\.sksl$/i, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60)
+      .replace(/-+$/g, '')
+    return slug || 'shader-effect'
+  }
+
+  var TRANSPARENT_PANEL_SHADER =
+    'uniform float2 resolution;\n' +
+    'half4 main(float2 xy) {\n' +
+    '  return half4(0.0, 0.0, 0.0, 0.0);\n' +
+    '}\n'
+
+  /** Convert one raw .sksl upload into the JSON artifact consumed by Install/Apply. */
+  function buildTextureJsonFromSkSL(rawText, options) {
+    var check = validateSubmissionSkSL(rawText)
+    if (!check.valid) return check
+    var opts = options && typeof options === 'object' ? options : {}
+    var id = slugifySubmissionId(opts.id || opts.fileName)
+    var requestedTarget = KNOWN_TARGETS.indexOf(opts.target) >= 0 ? opts.target : 'button'
+    var target = check.kind === 'optical' ? 'panel' : requestedTarget
+    var manifest = {
+      id: id,
+      renderer: 'shader',
+      target: target,
+      inputs: check.kind === 'optical' ? ['none'] : check.inputs,
+      fallback: {
+        material: check.kind === 'optical' ? 'glass' : 'paint',
+        backgroundColor: check.kind === 'optical'
+          ? 'rgba(255,255,255,0.055)'
+          : 'rgba(0,0,0,0)',
+        highlightColor: 'rgba(255,255,255,0.26)',
+        lowlightColor: 'rgba(0,0,0,0.12)',
+        borderColor: 'rgba(255,255,255,0.42)',
+      },
+      shaderSource: check.kind === 'optical' ? TRANSPARENT_PANEL_SHADER : String(rawText),
+    }
+
+    if (target === 'panel') {
+      manifest.blurAmount = check.kind === 'optical' ? 12 : 0
+      manifest.blurFill = check.kind === 'optical'
+        ? 'rgba(255,255,255,0.045)'
+        : 'rgba(0,0,0,0)'
+      manifest.strokeColor = 'rgba(255,255,255,0.42)'
+      manifest.strokeWidth = 1
+    }
+    if (check.kind === 'optical') {
+      manifest.opticalBackdrop = {
+        blurAmount: 7,
+        thickness: 14,
+        refractiveIndex: 1.5,
+        baseDepth: 56,
+        maxRefraction: 18,
+        dispersion: 0.9,
+        tint: [1, 1, 1],
+        tintStrength: 0,
+        highlightStrength: 0.5,
+        shaderSource: String(rawText),
+      }
+      if (requestedTarget !== 'panel') {
+        check.warnings.push(
+          'This shader samples `uniform shader image`, so Basalt set its target to panel automatically.'
+        )
+      }
+    }
+
+    return {
+      valid: true,
+      errors: [],
+      warnings: check.warnings,
+      kind: check.kind,
+      manifest: manifest,
+      json: JSON.stringify(manifest, null, 2) + '\n',
+      fileName: id + '.texture.json',
+    }
+  }
+
+  function validatePreviewFileName(fileName) {
+    var ext = fileExtLower(fileName)
+    var base = fileBasename(fileName)
+    if (!base) return { ok: true, errors: [], warnings: [] }
+    if (ALLOWED_PREVIEW_EXTS.indexOf(ext) < 0) {
+      return {
+        ok: false,
+        errors: [
+          'Thumbnail must be PNG, JPG, or WebP — not "' + base + '".',
+        ],
+        warnings: [],
+      }
+    }
+    return { ok: true, errors: [], warnings: [] }
+  }
+
   // Fields we already understand in Basalt. Presence is fine; unknown keys = warn.
   const KNOWN_KEYS = new Set([
     'id',
@@ -56,6 +419,9 @@
     'depthOverlay',
     'specular',
     'backgroundGradient',
+    'fallback',
+    'webEffect',
+    'opticalBackdrop',
   ])
 
   function isColor(v) {
@@ -244,4 +610,11 @@
   }
 
   window.validateSubmissionJson = validateSubmissionJson
+  window.validateSubmissionSkSL = validateSubmissionSkSL
+  window.buildTextureJsonFromSkSL = buildTextureJsonFromSkSL
+  window.validateSubmissionFileName = validateSubmissionFileName
+  window.validatePreviewFileName = validatePreviewFileName
+  window.BASALT_COMPONENT_FILE_ACCEPT = COMPONENT_FILE_ACCEPT
+  window.BASALT_PREVIEW_FILE_ACCEPT = PREVIEW_FILE_ACCEPT
+  window.BASALT_ALLOWED_COMPONENT_EXTS = ALLOWED_COMPONENT_EXTS.slice()
 })()
