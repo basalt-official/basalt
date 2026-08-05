@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Submit to Basalt Library</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="validator.js"></script>
+<script src="validator.js?v=20260805-sksl1"></script>
 <script src="marketplace-preview.js"></script>
 <link rel="stylesheet" href="basalt-ui.css">
 <style>
@@ -912,8 +912,13 @@
     const stockUnlimited = !!document.getElementById("stockUnlimited")?.checked;
     const stockQty = Math.max(0, Math.floor(Number(document.getElementById("itemStockQty")?.value || 0)));
 
-    if (!name || !description || !Number.isFinite(price) || price < 0 || !selectedFile) {
-      setStatus(formStatus, "Fill in every field and choose a file.", "err");
+    const missingFields = [];
+    if (!name) missingFields.push("Name");
+    if (!description) missingFields.push("Description");
+    if (!Number.isFinite(price) || price < 0) missingFields.push("Suggested price");
+    if (!selectedFile) missingFields.push("Component file");
+    if (missingFields.length) {
+      setStatus(formStatus, "Complete the following: " + missingFields.join(", ") + ".", "err");
       return;
     }
     if (!stockUnlimited && !(stockQty > 0)) {
