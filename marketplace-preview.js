@@ -8,9 +8,13 @@
   const SCREENSHOT_REQUIRED_MSG =
     "Upload a screenshot because Basalt couldn't build a safe preview from this file."
   const CANVASKIT_VERSION = '0.41.1'
-  const CANVASKIT_BASE = 'vendor/canvaskit/'
+  const CANVASKIT_LOCAL_BASE = 'vendor/canvaskit/'
+  const CANVASKIT_CDN_BASE =
+    'https://cdn.jsdelivr.net/npm/canvaskit-wasm@' + CANVASKIT_VERSION + '/bin/'
+  const CANVASKIT_TIMEOUT_MS = 12000
 
   let canvasKitPromise = null
+  let preferredCanvasKitBase = null
   let mounted = null
   let previewGeneration = 0
 
@@ -116,41 +120,112 @@
     }
   }
 
-  function assetUrl(name) {
-    return new URL(CANVASKIT_BASE + name, document.baseURI).href
+  function canvasKitAssetUrl(base, name) {
+    return new URL(name, new URL(base, document.baseURI)).href
+  }
+
+  function withTimeout(promise, milliseconds, message) {
+    return new Promise(function (resolve, reject) {
+      let settled = false
+      const timer = setTimeout(function () {
+        if (settled) return
+        settled = true
+        reject(new Error(message))
+      }, milliseconds)
+      Promise.resolve(promise).then(
+        function (value) {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolve(value)
+        },
+        function (error) {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          reject(error)
+        }
+      )
+    })
+  }
+
+  function loadCanvasKitScript(base) {
+    if (typeof window.CanvasKitInit === 'function') return Promise.resolve()
+    const src = canvasKitAssetUrl(base, 'canvaskit.js')
+    const existing = Array.from(document.querySelectorAll('script[data-basalt-canvaskit]'))
+      .find(function (script) { return script.src === src })
+    if (existing?.dataset.loaded === 'true') return Promise.resolve()
+
+    const scriptPromise = new Promise(function (resolve, reject) {
+      const script = existing || document.createElement('script')
+      script.src = src
+      script.async = true
+      script.dataset.basaltCanvaskit = CANVASKIT_VERSION
+      script.onload = function () {
+        script.dataset.loaded = 'true'
+        resolve()
+      }
+      script.onerror = function () {
+        script.remove()
+        reject(new Error('Could not download ' + src))
+      }
+      if (!existing) document.head.appendChild(script)
+    })
+
+    return withTimeout(
+      scriptPromise,
+      CANVASKIT_TIMEOUT_MS,
+      'Timed out downloading ' + src
+    )
+  }
+
+  async function initializeCanvasKit(base) {
+    await loadCanvasKitScript(base)
+    if (typeof window.CanvasKitInit !== 'function') {
+      throw new Error('CanvasKit loaded without its initializer.')
+    }
+    const initPromise = window.CanvasKitInit({
+      locateFile: function (name) { return canvasKitAssetUrl(base, name) },
+    })
+    return withTimeout(
+      initPromise,
+      CANVASKIT_TIMEOUT_MS,
+      'Timed out starting CanvasKit from ' + new URL(base, document.baseURI).href
+    )
   }
 
   function loadCanvasKit() {
     if (canvasKitPromise) return canvasKitPromise
-    canvasKitPromise = new Promise(function (resolve, reject) {
-      function initialize() {
-        if (typeof window.CanvasKitInit !== 'function') {
-          reject(new Error('CanvasKit loaded without its initializer.'))
-          return
+
+    canvasKitPromise = (async function () {
+      const bases = preferredCanvasKitBase
+        ? [preferredCanvasKitBase]
+        : [CANVASKIT_LOCAL_BASE, CANVASKIT_CDN_BASE]
+      const failures = []
+
+      for (const base of bases) {
+        try {
+          const CanvasKit = await initializeCanvasKit(base)
+          preferredCanvasKitBase = base
+          return CanvasKit
+        } catch (error) {
+          failures.push(messageFrom(error))
+          if (base === CANVASKIT_LOCAL_BASE && bases.length > 1) {
+            setLiveStatus('Local preview engine is unavailable. Trying the pinned online fallback…', 'loading')
+          }
         }
-        window.CanvasKitInit({ locateFile: assetUrl })
-          .then(resolve)
-          .catch(function (error) {
-            canvasKitPromise = null
-            reject(error)
-          })
       }
 
-      if (typeof window.CanvasKitInit === 'function') {
-        initialize()
-        return
-      }
-      const script = document.createElement('script')
-      script.src = assetUrl('canvaskit.js')
-      script.async = true
-      script.dataset.basaltCanvaskit = CANVASKIT_VERSION
-      script.onload = initialize
-      script.onerror = function () {
-        canvasKitPromise = null
-        reject(new Error('CanvasKit could not be loaded. Serve this page over http://127.0.0.1 instead of file://.'))
-      }
-      document.head.appendChild(script)
+      throw new Error(
+        'The Skia preview engine could not start. ' +
+        'Deploy vendor/canvaskit/canvaskit.js and canvaskit.wasm, or check this browser\'s network access. ' +
+        failures.join(' | ')
+      )
+    })().catch(function (error) {
+      canvasKitPromise = null
+      throw error
     })
+
     return canvasKitPromise
   }
 
@@ -208,6 +283,8 @@
     mounted.empty.hidden = false
     mounted.empty.textContent = 'Choose a procedural .sksl or shader texture JSON to render it here.'
     mounted.playButton.textContent = 'Pause'
+    mounted.retryButton.hidden = true
+    mounted.lastPreview = null
     mounted.paused = false
     setLiveStatus('Waiting for a shader', 'idle')
   }
@@ -290,6 +367,7 @@
   async function renderProcedural(source, options) {
     if (!mounted) throw new Error('The live preview is not mounted.')
     const generation = ++previewGeneration
+    mounted.lastPreview = { source: String(source), options: options || {} }
     disposeRenderer()
     mounted.root.hidden = false
     mounted.canvas.hidden = true
@@ -298,10 +376,21 @@
     mounted.empty.textContent = 'Starting the Skia preview engine...'
     mounted.paused = false
     mounted.playButton.textContent = 'Pause'
+    mounted.retryButton.hidden = true
     setLiveStatus('Loading CanvasKit ' + CANVASKIT_VERSION, 'loading')
     configureCanvas(options?.target)
 
-    const CanvasKit = await loadCanvasKit()
+    let CanvasKit
+    try {
+      CanvasKit = await loadCanvasKit()
+    } catch (error) {
+      if (generation !== previewGeneration) return { ok: false, cancelled: true }
+      const detail = messageFrom(error)
+      mounted.empty.textContent = 'Preview engine unavailable'
+      mounted.retryButton.hidden = false
+      setLiveStatus(detail, 'error')
+      return { ok: false, error: detail, engineUnavailable: true }
+    }
     if (generation !== previewGeneration) return { ok: false, cancelled: true }
     mounted.CanvasKit = CanvasKit
     let compileError = ''
@@ -429,10 +518,22 @@
     if (!parsed.ok) return parsed
     const shader = shaderFromTexture(parsed.texture)
     if (!shader || shader.optical) return buildFallbackPreview(parsed.texture, itemName)
-    const rendered = await renderProcedural(shader.source, { target: shader.target })
-    if (!rendered.ok) return rendered
-    drawFrame(performance.now())
-    return { ok: true, url: mounted.canvas.toDataURL('image/png'), rendered: 'skia' }
+    try {
+      const rendered = await renderProcedural(shader.source, { target: shader.target })
+      if (!rendered.ok) return rendered
+      drawFrame(performance.now())
+      return { ok: true, url: mounted.canvas.toDataURL('image/png'), rendered: 'skia' }
+    } catch (error) {
+      const detail = messageFrom(error)
+      if (mounted) {
+        mounted.empty.textContent = 'Preview could not be generated'
+        mounted.empty.hidden = false
+        mounted.canvas.hidden = true
+        mounted.retryButton.hidden = false
+        setLiveStatus(detail, 'error')
+      }
+      return { ok: false, error: detail }
+    }
   }
 
   function mount(root) {
@@ -440,7 +541,10 @@
     root.innerHTML =
       '<div class="shader-preview-head">' +
         '<div><strong>Live SkSL preview</strong><span>Skia RuntimeEffect in your browser</span></div>' +
-        '<button type="button" class="shader-preview-control" data-preview-toggle>Pause</button>' +
+        '<div>' +
+          '<button type="button" class="shader-preview-control" data-preview-retry hidden>Retry preview</button>' +
+          '<button type="button" class="shader-preview-control" data-preview-toggle>Pause</button>' +
+        '</div>' +
       '</div>' +
       '<div class="shader-preview-stage" data-preview-stage data-target="button">' +
         '<canvas data-preview-canvas width="960" height="320" hidden></canvas>' +
@@ -455,6 +559,7 @@
       empty: root.querySelector('[data-preview-empty]'),
       status: root.querySelector('[data-preview-status]'),
       playButton: root.querySelector('[data-preview-toggle]'),
+      retryButton: root.querySelector('[data-preview-retry]'),
       reduceMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
       paused: false,
       frameId: 0,
@@ -465,7 +570,16 @@
       CanvasKit: null,
       touch: { x: 480, y: 160 },
       startedAt: 0,
+      lastPreview: null,
     }
+
+    mounted.retryButton.addEventListener('click', function () {
+      if (!mounted?.lastPreview) return
+      canvasKitPromise = null
+      const lastPreview = mounted.lastPreview
+      mounted.retryButton.hidden = true
+      void renderProcedural(lastPreview.source, lastPreview.options)
+    })
 
     mounted.playButton.addEventListener('click', function () {
       if (!mounted?.surface || mounted.reduceMotion) return

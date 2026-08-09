@@ -6,7 +6,7 @@
 <title>Submit to Basalt Library</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="validator.js?v=20260805-sksl1"></script>
-<script src="marketplace-preview.js?v=20260808-canvaskit1"></script>
+<script src="marketplace-preview.js?v=20260809-canvaskit2"></script>
 <link rel="stylesheet" href="basalt-ui.css">
 <style>
   :root {
@@ -236,6 +236,12 @@
     margin-top: 4px;
     color: var(--text-muted);
     font: 10px/1.35 var(--mono);
+  }
+
+  .shader-preview-head > div:last-child {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
   button.shader-preview-control {
