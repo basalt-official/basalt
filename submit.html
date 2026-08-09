@@ -6,7 +6,7 @@
 <title>Submit to Basalt Library</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="validator.js?v=20260805-sksl1"></script>
-<script src="marketplace-preview.js"></script>
+<script src="marketplace-preview.js?v=20260808-canvaskit1"></script>
 <link rel="stylesheet" href="basalt-ui.css">
 <style>
   :root {
@@ -207,6 +207,100 @@
     color: var(--orange);
   }
 
+  .shader-preview {
+    margin: 12px 0 20px;
+    padding: 14px;
+    background: #101010;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .shader-preview[hidden] { display: none; }
+
+  .shader-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .shader-preview-head strong {
+    display: block;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .shader-preview-head span {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-muted);
+    font: 10px/1.35 var(--mono);
+  }
+
+  button.shader-preview-control {
+    width: auto;
+    min-width: 66px;
+    margin: 0;
+    padding: 7px 10px;
+    background: transparent;
+    border: 1px solid #343434;
+    color: var(--text);
+    font: 600 11px/1 var(--mono);
+  }
+
+  button.shader-preview-control:hover { border-color: var(--orange); }
+
+  .shader-preview-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 168px;
+    overflow: hidden;
+    background: #070707;
+    border: 1px solid #202020;
+    border-radius: 3px;
+    touch-action: none;
+  }
+
+  .shader-preview-stage[data-target="panel"] { min-height: 280px; }
+
+  .shader-preview-stage canvas {
+    display: block;
+    width: calc(100% - 28px);
+    height: auto;
+    max-height: 280px;
+    object-fit: fill;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 24px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+  }
+
+  .shader-preview-stage canvas[hidden] { display: none; }
+
+  .shader-preview-stage[data-target="panel"] canvas { border-radius: 12px; }
+
+  .shader-preview-empty {
+    max-width: 34ch;
+    padding: 24px;
+    color: #737373;
+    font: 11px/1.55 var(--mono);
+    text-align: center;
+  }
+
+  .shader-preview-status {
+    min-height: 16px;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font: 10.5px/1.45 var(--mono);
+    white-space: pre-wrap;
+  }
+
+  .shader-preview-status[data-kind="ready"] { color: #71d993; }
+  .shader-preview-status[data-kind="error"] { color: #ff7474; }
+  .shader-preview-status[data-kind="notice"] { color: #e9b26a; }
+
   button {
     width: 100%;
     background: var(--orange);
@@ -361,6 +455,16 @@
   }
   .page-footer a:hover { color: var(--text); }
 
+  @media (max-width: 540px) {
+    .shader-preview-stage { min-height: 128px; }
+    .shader-preview-stage[data-target="panel"] { min-height: 210px; }
+    .shader-preview-stage canvas { width: calc(100% - 18px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shader-preview-control { display: none; }
+  }
+
 </style>
 <script type="module" src="posthog-web.js"></script>
 </head>
@@ -484,6 +588,7 @@
         <option value="panel">Panel / section</option>
       </select>
     </div>
+    <div id="shaderPreview" class="shader-preview" hidden></div>
     <label>Thumbnail</label>
     <div class="dropzone" id="previewDropzone" style="margin-top:0;padding:16px;">
       <input type="file" id="previewInput" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" />
@@ -753,6 +858,9 @@
   const filenameEl = document.getElementById("filename");
   const skslOptions = document.getElementById("skslOptions");
   const skslTarget = document.getElementById("skslTarget");
+  const shaderPreview = document.getElementById("shaderPreview");
+  window.BasaltMarketPreview?.mount(shaderPreview);
+  let previewRequestId = 0;
 
   function isPrivateTestUpload() {
     return !!document.getElementById("privateTest")?.checked;
@@ -770,14 +878,34 @@
   syncSubmissionMode();
 
   function clearComponentFile() {
+    previewRequestId += 1;
     selectedFile = null;
     selectedFileKind = null;
     if (fileInput) fileInput.value = "";
     if (filenameEl) filenameEl.textContent = "";
     if (skslOptions) skslOptions.style.display = "none";
+    window.BasaltMarketPreview?.reset();
   }
 
-  function takeComponentFile(file) {
+  async function refreshSelectedShaderPreview() {
+    if (!selectedFile) return;
+    const requestId = ++previewRequestId;
+    const file = selectedFile;
+    try {
+      const rawText = await file.text();
+      if (requestId !== previewRequestId || file !== selectedFile) return;
+      await window.BasaltMarketPreview?.previewUpload(rawText, {
+        kind: selectedFileKind,
+        target: skslTarget?.value || "button",
+        itemName: document.getElementById("itemName")?.value.trim() || file.name,
+      });
+    } catch (error) {
+      if (requestId !== previewRequestId) return;
+      console.warn("[basalt] live shader preview failed:", error);
+    }
+  }
+
+  async function takeComponentFile(file) {
     if (!file) {
       clearComponentFile();
       return;
@@ -804,7 +932,10 @@
     } else {
       setStatus(formStatus, "", "");
     }
+    await refreshSelectedShaderPreview();
   }
+
+  skslTarget?.addEventListener("change", refreshSelectedShaderPreview);
 
   dropzone.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => {
@@ -961,7 +1092,7 @@
       }
       previewUrl = await fileToDataUrl(selectedPreviewFile);
     } else {
-      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(fileText, itemNameVal);
+      const built = await window.BasaltMarketPreview?.tryBuildPreviewFromTexture(fileText, itemNameVal);
       if (built && built.ok) {
         previewUrl = built.url;
       } else {
