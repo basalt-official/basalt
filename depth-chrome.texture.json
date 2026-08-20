@@ -1,0 +1,7 @@
+{
+  "id": "depth-chrome",
+  "renderer": "shader",
+  "labelColor": "#101218",
+  "inputs": ["deviceTilt"],
+  "shaderSource": "uniform float2 resolution;\nuniform float tiltX;\nuniform float tiltY;\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / max(resolution, float2(1.0, 1.0));\n  float aspect = resolution.x / max(resolution.y, 1.0);\n  float2 light = float2(0.35, 0.18) + float2(tiltX, tiltY) * 0.32;\n\n  float band = uv.x * 1.35 + uv.y * 0.55 + tiltX * 0.4 + tiltY * 0.25;\n  float metal = 0.42 + 0.38 * sin(band * 6.28318);\n  metal = mix(metal, 0.85, smoothstep(0.35, 0.55, fract(band)));\n\n  half3 dark = half3(0.28, 0.30, 0.34);\n  half3 bright = half3(0.92, 0.94, 0.98);\n  half3 cool = half3(0.62, 0.72, 0.88);\n  half3 warm = half3(0.88, 0.82, 0.72);\n  half3 col = mix(dark, bright, metal);\n  col = mix(col, cool, 0.22 + tiltX * 0.12);\n  col = mix(col, warm, 0.12 + max(0.0, -tiltY) * 0.15);\n\n  float2 e = min(uv, 1.0 - uv);\n  float rim = 1.0 - smoothstep(0.0, 0.09, min(e.x * aspect, e.y));\n  col = mix(col * 0.55, col + half3(0.25, 0.28, 0.32), 1.0 - rim * 0.85);\n  col += half3(1.0, 1.0, 1.0) * rim * 0.35;\n\n  float2 d = uv - light;\n  d.x *= aspect;\n  float spec = exp(-dot(d, d) * 28.0);\n  float streak = exp(-pow(d.x * 1.8 + d.y * 0.35, 2.0) * 40.0) * exp(-abs(d.y) * 8.0);\n  col += half3(1.0, 1.0, 1.0) * (spec * 1.05 + streak * 0.55);\n\n  float shade = smoothstep(0.0, 1.0, uv.y);\n  col *= mix(1.12, 0.72, shade);\n\n  return half4(col, 1.0);\n}\n"
+}

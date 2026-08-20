@@ -1,0 +1,17 @@
+{
+  "id": "traveling-border",
+  "renderer": "traveling-border",
+  "labelColor": "#f5f5f7",
+  "depthTop": "#1c1c22",
+  "depthBase": "#101014",
+  "backgroundGradient": {
+    "colors": ["#24242c", "#16161c", "#0e0e12"],
+    "positions": [0, 0.45, 1]
+  },
+  "border": {
+    "strokeWidth": 2.5,
+    "color": "rgba(255,255,255,0.95)",
+    "dash": [12, 8],
+    "defaultSpeed": 1.35
+  }
+}

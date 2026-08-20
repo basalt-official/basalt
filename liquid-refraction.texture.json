@@ -1,0 +1,10 @@
+{
+  "id": "liquid-refraction",
+  "renderer": "shader",
+  "target": "panel",
+  "blurAmount": 22,
+  "strokeColor": "rgba(255,255,255,0.5)",
+  "strokeWidth": 1.35,
+  "inputs": ["touch", "time"],
+  "shaderSource": "uniform float2 resolution;\nuniform float2 touch;\nuniform float time;\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / max(resolution, float2(1.0, 1.0));\n  float aspect = resolution.x / max(resolution.y, 1.0);\n  float2 t = touch / max(resolution, float2(1.0, 1.0));\n\n  float2 p = (uv - 0.5) * float2(aspect, 1.0);\n  float2 halfBox = float2(0.5 * aspect, 0.5);\n  float2 q = abs(p) - halfBox + 0.12;\n  float dist = min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - 0.12;\n  float edge = smoothstep(-0.22, 0.0, dist);\n\n  float2 normal = normalize(p + float2(0.0001, 0.0001));\n  float fringe = edge * 0.55;\n  half3 aberr = half3(\n    0.55 + fringe * 0.9,\n    0.72 + fringe * 0.35,\n    1.0\n  );\n\n  float2 d = uv - t;\n  d.x *= aspect;\n  float streak = exp(-pow(d.x * 2.2 + d.y * 0.5, 2.0) * 28.0);\n  streak *= exp(-length(d) * 1.5);\n\n  float breath = 0.5 + 0.5 * sin(time * 1.4 + uv.x * 4.0);\n  float body = 0.12 + 0.08 * (1.0 - uv.y) + edge * 0.32 + streak * 0.7 + breath * edge * 0.08;\n  float2 e = min(uv, 1.0 - uv);\n  float inset = smoothstep(0.0, 0.12, min(e.x * aspect, e.y));\n  body *= inset;\n\n  half3 tint = mix(half3(0.88, 0.94, 1.0), aberr, edge * 0.85);\n  return half4(tint, clamp(body, 0.0, 0.88));\n}\n"
+}

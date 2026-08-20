@@ -1,0 +1,17 @@
+{
+  "id": "green-flame-aura",
+  "renderer": "shader",
+  "labelColor": "#f2fff4",
+  "inputs": ["time"],
+  "fallback": {
+    "material": "paint",
+    "backgroundColor": "#020503",
+    "highlightColor": "rgba(87,255,119,0.20)",
+    "lowlightColor": "rgba(0,24,7,0.72)",
+    "borderColor": "rgba(75,255,105,0.92)",
+    "glowColor": "rgba(34,255,82,0.72)",
+    "glowOpacity": 0.88,
+    "glowRadius": 24
+  },
+  "shaderSource": "uniform float2 resolution;\nuniform float time;\n\nfloat hash(float2 p) {\n  return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);\n}\n\nfloat valueNoise(float2 p) {\n  float2 i = floor(p);\n  float2 f = fract(p);\n  float2 u = f * f * (3.0 - 2.0 * f);\n  float a = hash(i);\n  float b = hash(i + float2(1.0, 0.0));\n  float c = hash(i + float2(0.0, 1.0));\n  float d = hash(i + float2(1.0, 1.0));\n  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);\n}\n\nfloat turbulence(float2 p) {\n  float v = valueNoise(p) * 0.56;\n  v += valueNoise(p * 2.07 + 13.4) * 0.27;\n  v += valueNoise(p * 4.13 + 7.1) * 0.12;\n  v += valueNoise(p * 8.21 + 3.8) * 0.05;\n  return v;\n}\n\nhalf4 main(float2 xy) {\n  float2 safeResolution = max(resolution, float2(1.0));\n  float2 uv = xy / safeResolution;\n  float aspect = safeResolution.x / safeResolution.y;\n\n  float leftEdge = uv.x * aspect;\n  float rightEdge = (1.0 - uv.x) * aspect;\n  float topEdge = uv.y;\n  float bottomEdge = 1.0 - uv.y;\n  float edgeDistance = min(min(leftEdge, rightEdge), min(topEdge, bottomEdge));\n\n  float2 flowA = float2(uv.x * aspect * 7.5 + uv.y * 2.8, uv.y * 9.0 - time * 2.7);\n  float2 flowB = float2(uv.y * 11.0 - time * 1.8, uv.x * aspect * 6.2 + time * 2.2);\n  float noiseA = turbulence(flowA);\n  float noiseB = turbulence(flowB);\n  float flameNoise = clamp(noiseA * 0.68 + noiseB * 0.42, 0.0, 1.0);\n\n  float pulse = 0.86 + 0.14 * sin(time * 3.1 + uv.x * 9.0 - uv.y * 7.0);\n  float flameDepth = (0.045 + flameNoise * 0.115) * pulse;\n  float flame = 1.0 - smoothstep(flameDepth * 0.34, flameDepth, edgeDistance);\n  float core = 1.0 - smoothstep(0.0, 0.032, edgeDistance);\n  float tendrils = smoothstep(0.52, 0.94, flameNoise) *\n    (1.0 - smoothstep(flameDepth * 0.45, flameDepth * 1.35, edgeDistance));\n  float innerHeat = exp(-edgeDistance * 20.0) * (0.66 + flameNoise * 0.34);\n\n  float2 centered = (uv - float2(0.5)) * float2(aspect, 1.0);\n  float vignette = smoothstep(0.12, 0.78, length(centered));\n  half3 blackBody = mix(half3(0.003, 0.008, 0.004), half3(0.008, 0.018, 0.010), vignette);\n\n  half3 emberGreen = half3(0.005, 0.24, 0.035);\n  half3 neonGreen = half3(0.02, 0.96, 0.16);\n  half3 hotGreen = half3(0.48, 1.0, 0.58);\n  half3 whiteCore = half3(0.86, 1.0, 0.89);\n\n  half3 fire = mix(emberGreen, neonGreen, smoothstep(0.08, 0.56, flame));\n  fire = mix(fire, hotGreen, smoothstep(0.50, 0.90, flame * flameNoise + core * 0.45));\n  fire = mix(fire, whiteCore, smoothstep(0.78, 1.18, core + tendrils * 0.52));\n\n  half3 color = blackBody;\n  color += fire * flame * (0.48 + flameNoise * 0.72);\n  color += neonGreen * tendrils * 0.88;\n  color += hotGreen * innerHeat * 0.10;\n  color += whiteCore * core * (0.32 + 0.18 * sin(time * 4.4 + uv.x * 15.0));\n\n  float centerGuard = smoothstep(0.04, 0.18, edgeDistance);\n  color = mix(color, blackBody, centerGuard * 0.92);\n  color += neonGreen * (1.0 - centerGuard) * 0.035;\n\n  return half4(clamp(color, half3(0.0), half3(1.0)), 1.0);\n}\n"
+}

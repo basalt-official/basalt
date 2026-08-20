@@ -17,6 +17,9 @@
   let preferredCanvasKitBase = null
   let mounted = null
   let previewGeneration = 0
+  const catalogRenderers = new Map()
+  let catalogObserver = null
+  let catalogFrameId = 0
 
   function color(value, fallback) {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback
@@ -369,7 +372,7 @@
         optical: true,
       }
     }
-    if (texture.renderer === 'shader' && typeof texture.shaderSource === 'string') {
+    if (typeof texture.shaderSource === 'string') {
       return {
         source: texture.shaderSource,
         target: texture.target === 'panel' ? 'panel' : 'button',
@@ -430,7 +433,10 @@
       if (name === 'resolution') supplied = [width, height]
       else if (name === 'time') supplied = [elapsed]
       else if (name === 'touch') supplied = [touch.x, touch.y]
-      else if (name === 'tiltX' || name === 'tiltY') supplied = [0]
+      // A catalog card has no device sensors. Sweep a small virtual tilt so
+      // tilt-reactive materials still demonstrate their real highlight motion.
+      else if (name === 'tiltX') supplied = [Math.sin(elapsed * 0.72) * 0.34]
+      else if (name === 'tiltY') supplied = [Math.cos(elapsed * 0.61) * 0.24]
       else throw new Error('The web preview does not supply the uniform "' + name + '".')
 
       const slots = Math.max(1, Number(info.columns || 1) * Number(info.rows || 1))
@@ -442,6 +448,183 @@
       })
     }
     return values
+  }
+
+  // Marketplace cards use their own renderers so opening a card never steals
+  // the submit page's live preview. Render only cards that are on-screen; the
+  // image beneath the canvas remains a fast, reliable fallback while CanvasKit
+  // starts (and for textures the website cannot execute).
+  function disposeCatalogRenderer(state) {
+    if (!state) return
+    if (catalogObserver) {
+      try { catalogObserver.unobserve(state.canvas) } catch (_) {}
+    }
+    ;['shader', 'paint', 'effect', 'surface'].forEach(function (key) {
+      const resource = state[key]
+      if (resource && typeof resource.delete === 'function') {
+        try { resource.delete() } catch (_) {}
+      } else if (resource && key === 'surface' && typeof resource.dispose === 'function') {
+        try { resource.dispose() } catch (_) {}
+      }
+      state[key] = null
+    })
+    if (state.canvas) state.canvas.hidden = true
+  }
+
+  function disposeCatalogPreview(canvas) {
+    const state = catalogRenderers.get(canvas)
+    if (!state) return
+    catalogRenderers.delete(canvas)
+    disposeCatalogRenderer(state)
+  }
+
+  function drawCatalogFrame(state, now) {
+    if (!state?.surface || !state.effect || !state.paint) return
+    const elapsed = state.reduceMotion ? 1.4 : Math.max(0, (now - state.startedAt) / 1000)
+    let shader = null
+    try {
+      const uniforms = makeUniforms(
+        state.effect,
+        state.canvas.width,
+        state.canvas.height,
+        elapsed,
+        state.touch
+      )
+      shader = state.effect.makeShader(uniforms)
+      state.paint.setShader(shader)
+      const canvas = state.surface.getCanvas()
+      canvas.clear(state.CanvasKit.TRANSPARENT)
+      canvas.drawRect(
+        state.CanvasKit.LTRBRect(0, 0, state.canvas.width, state.canvas.height),
+        state.paint
+      )
+      state.surface.flush()
+      if (state.shader && typeof state.shader.delete === 'function') state.shader.delete()
+      state.shader = shader
+      shader = null
+    } finally {
+      if (shader && typeof shader.delete === 'function') shader.delete()
+    }
+  }
+
+  function scheduleCatalogFrame() {
+    if (catalogFrameId || !catalogRenderers.size) return
+    catalogFrameId = requestAnimationFrame(function (now) {
+      catalogFrameId = 0
+      let needsAnotherFrame = false
+      catalogRenderers.forEach(function (state, canvas) {
+        if (!canvas.isConnected) {
+          disposeCatalogPreview(canvas)
+          return
+        }
+        if (!state.visible || state.reduceMotion || !state.surface) return
+        try {
+          drawCatalogFrame(state, now)
+          needsAnotherFrame = true
+        } catch (_) {
+          // Keep the already-loaded catalog image visible if a user supplied
+          // shader cannot render in this browser.
+          disposeCatalogPreview(canvas)
+        }
+      })
+      if (needsAnotherFrame) scheduleCatalogFrame()
+    })
+  }
+
+  function ensureCatalogObserver() {
+    if (catalogObserver || typeof IntersectionObserver !== 'function') return
+    catalogObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        const state = catalogRenderers.get(entry.target)
+        if (!state) return
+        state.visible = entry.isIntersecting
+        if (state.visible) {
+          if (!state.initialized && !state.initializing) void startCatalogRenderer(state)
+          scheduleCatalogFrame()
+        }
+      })
+    }, { rootMargin: '160px 0px' })
+  }
+
+  async function startCatalogRenderer(state) {
+    if (!state || state.initializing || state.initialized || !state.visible) return
+    state.initializing = true
+    let CanvasKit
+    try {
+      CanvasKit = await loadCanvasKit()
+      if (catalogRenderers.get(state.canvas) !== state || !state.visible) return
+
+      let compileError = ''
+      const effect = CanvasKit.RuntimeEffect.Make(state.source, function (error) {
+        compileError = String(error || '')
+      })
+      if (!effect) throw new Error(compileError.trim() || 'Skia rejected this RuntimeEffect.')
+
+      let surface = CanvasKit.MakeWebGLCanvasSurface(
+        state.canvas,
+        CanvasKit.ColorSpace?.SRGB,
+        { antialias: 1, alpha: 1, premultipliedAlpha: 1, preserveDrawingBuffer: 1 }
+      )
+      if (!surface) surface = CanvasKit.MakeSWCanvasSurface(state.canvas)
+      if (!surface) {
+        effect.delete()
+        throw new Error('Skia could not create a canvas surface.')
+      }
+
+      state.CanvasKit = CanvasKit
+      state.effect = effect
+      state.surface = surface
+      state.paint = new CanvasKit.Paint()
+      state.paint.setAntiAlias(true)
+      state.touch = { x: state.canvas.width / 2, y: state.canvas.height / 2 }
+      state.startedAt = performance.now()
+      state.initialized = true
+      state.canvas.hidden = false
+      drawCatalogFrame(state, state.startedAt + 1400)
+      scheduleCatalogFrame()
+    } catch (_) {
+      if (catalogRenderers.get(state.canvas) === state) disposeCatalogPreview(state.canvas)
+    } finally {
+      if (catalogRenderers.get(state.canvas) === state) state.initializing = false
+    }
+  }
+
+  function mountCatalogPreview(canvas, rawText) {
+    if (!(canvas instanceof HTMLCanvasElement) || typeof rawText !== 'string') return false
+    const parsed = parseTexture(rawText)
+    if (!parsed.ok) return false
+    const shader = shaderFromTexture(parsed.texture)
+    if (!shader || shader.optical) return false
+
+    disposeCatalogPreview(canvas)
+    canvas.width = 640
+    canvas.height = 400
+    canvas.hidden = true
+    const state = {
+      canvas,
+      source: shader.source,
+      visible: typeof IntersectionObserver !== 'function',
+      initializing: false,
+      initialized: false,
+      reduceMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
+      CanvasKit: null,
+      surface: null,
+      effect: null,
+      paint: null,
+      shader: null,
+      touch: { x: 320, y: 200 },
+      startedAt: 0,
+    }
+    catalogRenderers.set(canvas, state)
+    ensureCatalogObserver()
+    if (catalogObserver) catalogObserver.observe(canvas)
+    if (state.visible) void startCatalogRenderer(state)
+    return true
+  }
+
+  function disposeCatalogPreviews(root) {
+    if (!root) return
+    root.querySelectorAll('canvas[data-basalt-catalog-preview]').forEach(disposeCatalogPreview)
   }
 
   function drawFrame(now) {
@@ -759,5 +942,8 @@
     previewTexture,
     previewRawSkSL,
     tryBuildLivePreviewFromTexture,
+    // Marketplace live cards (CanvasKit is shared; off-screen cards are paused).
+    mountCatalogPreview,
+    disposeCatalogPreviews,
   }
 })()

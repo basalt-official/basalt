@@ -1,0 +1,29 @@
+{
+  "id": "water-ripple",
+  "renderer": "shader",
+  "target": "panel",
+  "blurAmount": 18,
+  "blurFill": "rgba(202,232,255,0.065)",
+  "strokeColor": "rgba(224,245,255,0.58)",
+  "strokeWidth": 1,
+  "glow": {
+    "color": "rgba(120,205,255,0.62)",
+    "opacity": 0.24,
+    "radius": 16
+  },
+  "labelColor": "#f7fbff",
+  "inputs": ["touch", "time"],
+  "webEffect": {
+    "type": "ripple",
+    "color": "rgba(222,248,255,0.94)",
+    "glowColor": "rgba(84,194,255,0.62)",
+    "ambientColor": "rgba(84,194,255,0.045)",
+    "sheenColor": "rgba(216,246,255,0.09)",
+    "durationMs": 1050,
+    "maxScale": 1.18,
+    "ringWidth": 1.5,
+    "rings": 3,
+    "opacity": 0.74
+  },
+  "shaderSource": "uniform float2 resolution;\nuniform float2 touch;\nuniform float time;\n\nfloat sharpRing(float phase, float sharpness) {\n  return pow(0.5 + 0.5 * cos(phase), sharpness);\n}\n\nhalf4 main(float2 xy) {\n  float2 safeResolution = max(resolution, float2(1.0, 1.0));\n  float2 uv = xy / safeResolution;\n  float aspect = safeResolution.x / safeResolution.y;\n  float2 touchUv = clamp(touch / safeResolution, float2(0.0, 0.0), float2(1.0, 1.0));\n\n  // Aspect-correct distance keeps every wave circular on wide and tall surfaces.\n  float2 delta = (uv - touchUv) * float2(aspect, 1.0);\n  float distanceFromTouch = length(delta);\n  float2 radial = delta / max(distanceFromTouch, 0.0001);\n\n  // Constant-phase contours move outward as time increases: a train of expanding ripples.\n  float phase = distanceFromTouch * 58.0 - time * 6.4;\n  float nearFade = smoothstep(0.012, 0.055, distanceFromTouch);\n  float farFade = 1.0 - smoothstep(0.48, 1.18, distanceFromTouch);\n  float energy = nearFade * farFade * exp(-distanceFromTouch * 1.15);\n\n  // Paired bright/dark bands read as a tiny refractive slope instead of a flat ring.\n  float crest = sharpRing(phase, 10.0) * energy;\n  float softCrest = sharpRing(phase + 0.42, 4.0) * energy;\n  float trough = sharpRing(phase + 1.38, 8.0) * energy;\n  float secondary = sharpRing(phase * 0.51 - 0.7, 12.0) * energy * 0.32;\n\n  // A fixed upper-left light makes the ripple's lensing direction consistent.\n  float directionalLight = clamp(dot(radial, normalize(float2(-0.62, -0.78))) * 0.5 + 0.5, 0.0, 1.0);\n  float litCrest = crest * mix(0.35, 1.0, directionalLight);\n  float shadedCrest = crest * mix(1.0, 0.28, directionalLight);\n\n  // Touch impact and a short glossy wake make interaction feel wet, not mechanical.\n  float impactPulse = 0.55 + 0.45 * sin(time * 3.1);\n  float impact = exp(-distanceFromTouch * distanceFromTouch * 92.0) * impactPulse;\n  float wake = exp(-pow(delta.x * 1.8 + delta.y * 0.52, 2.0) * 36.0);\n  wake *= exp(-distanceFromTouch * 4.2) * 0.42;\n\n  // Fine caustics remain subtle so text above the material stays readable.\n  float causticA = 0.5 + 0.5 * sin(uv.x * 13.0 + uv.y * 7.0 - time * 0.55);\n  float causticB = 0.5 + 0.5 * sin(uv.x * -8.0 + uv.y * 15.0 + time * 0.38);\n  float caustic = pow(clamp(causticA * causticB, 0.0, 1.0), 5.0) * 0.055;\n\n  // Quiet glass edge so the water remains visible when no touch has occurred yet.\n  float2 edgeDistance = min(uv, float2(1.0, 1.0) - uv);\n  float edge = min(edgeDistance.x * aspect, edgeDistance.y);\n  float rim = 1.0 - smoothstep(0.0, 0.055, edge);\n  float innerRim = smoothstep(0.025, 0.075, edge) * (1.0 - smoothstep(0.075, 0.16, edge));\n\n  // Slight wavelength separation gives the brightest crests a believable water prism.\n  float redWave = sharpRing(phase - 0.075, 10.0) * energy;\n  float greenWave = sharpRing(phase, 10.0) * energy;\n  float blueWave = sharpRing(phase + 0.09, 10.0) * energy;\n  half3 spectralCrest = half3(redWave, greenWave, blueWave);\n\n  half3 color = mix(half3(0.68, 0.86, 0.98), half3(0.94, 0.985, 1.0), 0.68 + 0.20 * (1.0 - uv.y));\n  color += half3(1.0, 1.0, 1.0) * (litCrest * 0.78 + softCrest * 0.16 + impact * 0.38);\n  color += half3(0.48, 0.78, 1.0) * (secondary * 0.44 + wake * 0.18 + caustic);\n  color += spectralCrest * 0.085;\n  color += half3(0.86, 0.96, 1.0) * (rim * 0.30 + innerRim * 0.13);\n  color *= 1.0 - shadedCrest * 0.16 - trough * 0.085;\n\n  // The blurred backdrop remains the material; the shader contributes only optical relief.\n  float alpha = 0.045 + rim * 0.13 + innerRim * 0.035;\n  alpha += litCrest * 0.21 + trough * 0.055 + secondary * 0.06;\n  alpha += impact * 0.10 + wake * 0.04 + caustic * 0.45;\n\n  return half4(clamp(color, half3(0.0), half3(1.0)), clamp(alpha, 0.0, 0.56));\n}\n"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "liquid-glass",
+  "renderer": "shader",
+  "target": "panel",
+  "blurAmount": 10,
+  "blurFill": "rgba(255,255,255,0.01)",
+  "strokeColor": "rgba(255,255,255,0.42)",
+  "strokeWidth": 1,
+  "glow": {
+    "color": "rgba(214,232,255,0.10)",
+    "opacity": 0.08,
+    "radius": 10
+  },
+  "labelColor": "#ffffff",
+  "inputs": ["none"],
+  "webEffect": {
+    "type": "liquid-glass",
+    "surfaceColor": "rgba(255,255,255,0.02)",
+    "edgeLightColor": "rgba(255,255,255,0.82)",
+    "edgeShadowColor": "rgba(5,14,25,0.36)",
+    "topLightColor": "rgba(255,255,255,0.22)",
+    "bottomShadeColor": "rgba(7,18,31,0.14)",
+    "blurAmount": 12,
+    "displacementScale": 24,
+    "saturation": 1.8,
+    "brightness": 1.04,
+    "contrast": 1.04
+  },
+  "opticalBackdrop": {
+    "preset": "liquid-glass-lens",
+    "blurAmount": 3.5,
+    "thickness": 12,
+    "refractiveIndex": 1.48,
+    "baseDepth": 96,
+    "maxRefraction": 48,
+    "dispersion": 0.7,
+    "tint": [1, 1, 1],
+    "tintStrength": 0.015,
+    "highlightStrength": 0.48
+  },
+  "shaderSource": "half4 main(float2 xy) { return half4(0.0); }\n"
+}

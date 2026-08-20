@@ -1,0 +1,7 @@
+{
+  "id": "iridescent-chrome",
+  "renderer": "shader",
+  "labelColor": "#f2f4f8",
+  "inputs": ["deviceTilt"],
+  "shaderSource": "uniform float2 resolution;\nuniform float tiltX;\nuniform float tiltY;\n\nhalf3 hsv2rgb(half3 c) {\n  half4 K = half4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n  half3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nhalf3 hueShift(half3 color, float shift) {\n  float mx = max(color.r, max(color.g, color.b));\n  float mn = min(color.r, min(color.g, color.b));\n  float d = mx - mn;\n  float h = 0.0;\n  if (d > 0.0001) {\n    if (mx == color.r) h = (color.g - color.b) / d + (color.g < color.b ? 6.0 : 0.0);\n    else if (mx == color.g) h = (color.b - color.r) / d + 2.0;\n    else h = (color.r - color.g) / d + 4.0;\n    h /= 6.0;\n  }\n  float s = mx <= 0.0 ? 0.0 : d / mx;\n  return hsv2rgb(half3(fract(h + shift), s, mx));\n}\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / resolution;\n  float2 centered = uv - float2(0.5, 0.5);\n  float light = 0.55 + 0.45 * (1.0 - length(centered + float2(tiltX, tiltY) * 0.18));\n  half3 base = half3(0.72, 0.76, 0.82) * light;\n  float shift = tiltX * 0.42 + tiltY * 0.28 + length(centered) * 0.35;\n  half3 chrome = hueShift(base, shift);\n  float rim = smoothstep(0.62, 0.28, length(centered));\n  chrome = mix(chrome * 0.55, chrome, rim);\n  return half4(chrome, 1.0);\n}\n"
+}

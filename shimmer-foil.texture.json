@@ -1,0 +1,7 @@
+{
+  "id": "shimmer-foil",
+  "renderer": "shader",
+  "labelColor": "#f8f8fc",
+  "inputs": ["time"],
+  "shaderSource": "uniform float2 resolution;\nuniform float time;\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / max(resolution, float2(1.0, 1.0));\n  float aspect = resolution.x / max(resolution.y, 1.0);\n\n  half3 base = mix(half3(0.08, 0.09, 0.12), half3(0.18, 0.20, 0.26), 1.0 - uv.y);\n  float band = uv.x * aspect + uv.y * 0.35 - time * 0.55;\n  float shimmer = smoothstep(0.0, 0.08, fract(band)) * (1.0 - smoothstep(0.08, 0.22, fract(band)));\n  shimmer += 0.35 * smoothstep(0.0, 0.12, fract(band + 0.45)) * (1.0 - smoothstep(0.12, 0.35, fract(band + 0.45)));\n\n  half3 foil = half3(0.85, 0.92, 1.0);\n  half3 rose = half3(1.0, 0.78, 0.92);\n  half3 mint = half3(0.72, 1.0, 0.88);\n  half3 tint = mix(foil, rose, 0.35 + 0.35 * sin(time * 0.7));\n  tint = mix(tint, mint, 0.25 + 0.25 * cos(time * 0.9 + uv.x * 3.0));\n\n  half3 col = base + tint * shimmer * 0.85;\n  float2 e = min(uv, 1.0 - uv);\n  float rim = 1.0 - smoothstep(0.0, 0.09, min(e.x * aspect, e.y));\n  col += half3(1.0, 1.0, 1.0) * rim * 0.22;\n  col += half3(1.0, 1.0, 1.0) * smoothstep(0.0, 0.08, uv.y) * (1.0 - smoothstep(0.08, 0.28, uv.y)) * 0.18;\n\n  return half4(col, 1.0);\n}\n"
+}

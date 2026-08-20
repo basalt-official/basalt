@@ -1,0 +1,35 @@
+{
+  "id": "liquid-glass-ios",
+  "renderer": "shader",
+  "blurAmount": 18,
+  "blurFill": "rgba(255,255,255,0.12)",
+  "strokeColor": "rgba(255,255,255,0.62)",
+  "strokeWidth": 1,
+  "labelColor": "#ffffff",
+  "inputs": ["touch", "time"],
+  "fallback": {
+    "material": "glass",
+    "backgroundColor": "rgba(255,255,255,0.05)",
+    "highlightColor": "rgba(255,255,255,0.28)",
+    "lowlightColor": "rgba(5,14,25,0.17)",
+    "borderColor": "rgba(255,255,255,0.62)",
+    "glowColor": "rgba(205,230,255,0.12)",
+    "blurAmount": 16,
+    "saturation": 1.5,
+    "brightness": 1.04,
+    "contrast": 1.03
+  },
+  "opticalBackdrop": {
+    "preset": "liquid-glass-lens",
+    "blurAmount": 6,
+    "thickness": 14,
+    "refractiveIndex": 1.5,
+    "baseDepth": 112,
+    "maxRefraction": 56,
+    "dispersion": 0.9,
+    "tint": [1, 1, 1],
+    "tintStrength": 0.08,
+    "highlightStrength": 1
+  },
+  "shaderSource": "uniform float2 resolution;\nuniform float2 touch;\nuniform float time;\n\nfloat bell(float value, float center, float width) {\n  float d = (value - center) / max(width, 0.0001);\n  return exp(-d * d);\n}\n\nhalf4 main(float2 xy) {\n  float2 safeResolution = max(resolution, float2(1.0));\n  float2 uv = xy / safeResolution;\n  float aspect = safeResolution.x / safeResolution.y;\n  float2 touchUv = clamp(touch / safeResolution, float2(0.0), float2(1.0));\n\n  float2 edgeDistance = min(uv, float2(1.0) - uv);\n  float edge = min(edgeDistance.x * aspect, edgeDistance.y);\n  float outerRim = 1.0 - smoothstep(0.0, 0.035, edge);\n  float innerRim = smoothstep(0.018, 0.065, edge) * (1.0 - smoothstep(0.065, 0.145, edge));\n  float topLens = bell(uv.y, 0.045, 0.038) * smoothstep(0.03, 0.18, uv.x) * (1.0 - smoothstep(0.82, 0.97, uv.x));\n  float leftLens = bell(uv.x, 0.035, 0.028) * smoothstep(0.05, 0.22, uv.y) * (1.0 - smoothstep(0.78, 0.96, uv.y));\n  float lowerShade = smoothstep(0.58, 1.0, uv.y) * smoothstep(0.38, 1.0, uv.x);\n\n  float2 touchDelta = (uv - touchUv) * float2(aspect, 1.0);\n  float touchBloom = exp(-dot(touchDelta, touchDelta) * 15.0);\n  float touchStreak = exp(-pow(touchDelta.x * 2.0 + touchDelta.y * 0.5, 2.0) * 32.0);\n  touchStreak *= exp(-length(touchDelta) * 2.6);\n  float slowCaustic = pow(0.5 + 0.5 * sin(uv.x * 7.0 + uv.y * 3.8 + time * 0.28), 5.0);\n\n  half3 color = half3(0.985, 0.992, 1.0);\n  color += half3(1.0) * (outerRim * 0.54 + topLens * 0.42 + leftLens * 0.18);\n  color += half3(0.92, 0.97, 1.0) * (innerRim * 0.16 + touchBloom * 0.08 + touchStreak * 0.30);\n  color += half3(0.96, 0.985, 1.0) * slowCaustic * 0.025;\n  color *= 1.0 - lowerShade * 0.10;\n\n  float alpha = 0.035 + outerRim * 0.21 + innerRim * 0.055;\n  alpha += topLens * 0.10 + leftLens * 0.045 + touchStreak * 0.075 + touchBloom * 0.025;\n  alpha += slowCaustic * 0.012;\n  alpha = clamp(alpha, 0.0, 0.38);\n  return half4(clamp(color, half3(0.0), half3(1.0)) * half(alpha), half(alpha));\n}\n"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "depth-stage",
+  "renderer": "shader",
+  "target": "panel",
+  "blurAmount": 10,
+  "strokeColor": "rgba(255,255,255,0.08)",
+  "strokeWidth": 0.5,
+  "inputs": ["deviceTilt"],
+  "shaderSource": "uniform float2 resolution;\nuniform float tiltX;\nuniform float tiltY;\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / max(resolution, float2(1.0, 1.0));\n  float aspect = resolution.x / max(resolution.y, 1.0);\n  float2 key = float2(0.22, 0.12) + float2(tiltX, tiltY) * 0.14;\n\n  float2 d = uv - key;\n  d.x *= aspect;\n  float keyLight = exp(-dot(d, d) * 1.8);\n\n  float vignette = pow(length((uv - float2(0.5, 0.55)) * float2(1.15, 1.0)), 1.6);\n  vignette = smoothstep(0.15, 1.05, vignette);\n\n  float floorGlow = exp(-pow((uv.y - 0.78) * 3.2, 2.0)) * 0.22;\n  float haze = (1.0 - uv.y) * 0.12;\n\n  half3 cool = half3(0.35, 0.48, 0.72);\n  half3 warm = half3(0.55, 0.42, 0.32);\n  half3 tint = mix(cool, warm, clamp(uv.x * 0.35 + (1.0 - uv.y) * 0.25, 0.0, 1.0));\n\n  float alpha = keyLight * 0.34 + haze + floorGlow;\n  alpha *= (1.0 - vignette * 0.55);\n  alpha = clamp(alpha, 0.0, 0.55);\n\n  return half4(tint, alpha);\n}\n"
+}

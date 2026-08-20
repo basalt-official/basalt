@@ -1,0 +1,10 @@
+{
+  "id": "depth-card",
+  "renderer": "shader",
+  "target": "panel",
+  "blurAmount": 20,
+  "strokeColor": "rgba(255,255,255,0.48)",
+  "strokeWidth": 1.15,
+  "inputs": ["deviceTilt"],
+  "shaderSource": "uniform float2 resolution;\nuniform float tiltX;\nuniform float tiltY;\n\nhalf4 main(float2 xy) {\n  float2 uv = xy / max(resolution, float2(1.0, 1.0));\n  float aspect = resolution.x / max(resolution.y, 1.0);\n  float2 light = float2(0.28, 0.16) + float2(tiltX, tiltY) * 0.24;\n\n  float2 e = min(uv, 1.0 - uv);\n  float rim = 1.0 - smoothstep(0.0, 0.10, min(e.x * aspect, e.y));\n  float inset = smoothstep(0.0, 0.14, min(e.x * aspect, e.y));\n\n  float body = 0.10 + 0.10 * (1.0 - uv.y);\n  body += rim * 0.28;\n  body *= mix(1.15, 0.75, smoothstep(0.45, 1.0, uv.y));\n\n  float2 d = uv - light;\n  d.x *= aspect;\n  float spec = exp(-dot(d, d) * 16.0);\n  float soft = exp(-dot(d, d) * 4.5);\n  float sheen = smoothstep(0.0, 0.07, uv.y) * (1.0 - smoothstep(0.07, 0.36, uv.y));\n\n  half3 tint = half3(0.86, 0.92, 1.0);\n  float glow = body * 0.55 + spec * 0.72 + soft * 0.18 + sheen * 0.22;\n  glow *= inset;\n\n  float seam = smoothstep(0.92, 1.0, uv.y) * 0.18;\n  glow = max(glow - seam, 0.0);\n\n  return half4(tint, clamp(glow, 0.0, 0.85));\n}\n"
+}

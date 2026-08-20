@@ -1,0 +1,17 @@
+{
+  "id": "glow-gradient",
+  "renderer": "gradient",
+  "labelColor": "#ffffff",
+  "colors": ["#5a5a62", "#2a2a32", "#121218"],
+  "positions": [0, 0.48, 1],
+  "angleDeg": 145,
+  "border": {
+    "color": "rgba(255,255,255,0.95)",
+    "width": 1.5
+  },
+  "glow": {
+    "color": "rgba(255,255,255,0.7)",
+    "opacity": 0.65,
+    "radius": 16
+  }
+}

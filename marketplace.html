@@ -202,8 +202,9 @@
 
   .card { cursor: pointer; }
   .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .swatch { overflow: hidden; padding: 0; }
-  .swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .swatch { overflow: hidden; padding: 0; position: relative; }
+  .swatch img, .swatch canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .swatch canvas { position: absolute; inset: 0; pointer-events: none; }
   .card p.desc-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
   #market-drawer-root { position: fixed; inset: 0; z-index: 500; display: none; }
@@ -220,7 +221,9 @@
     border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 20px; cursor: pointer;
   }
   .drawer-preview { width: 100%; aspect-ratio: 16/10; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; background: #0d0d0f; }
-  .drawer-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .drawer-preview { position: relative; }
+  .drawer-preview img, .drawer-preview canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .drawer-preview canvas { position: absolute; inset: 0; pointer-events: none; }
   .drawer-title { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
   .drawer-desc { font-size: 14px; line-height: 1.55; color: var(--text-dim); margin: 0 0 16px; }
   .drawer-meta { font-size: 12px; color: var(--text-dim); margin: 0 0 18px; }
@@ -492,13 +495,52 @@
     return null;
   }
 
+  const builtinTextureAliases = {
+    'flame aura': 'flame',
+    flame: 'flame',
+    glow: 'glow-gradient',
+    shimmer: 'shimmer-foil',
+    'liquid glass': 'liquid-glass',
+    'traveling border': 'traveling-border',
+    'soft fade': 'soft-fade',
+    'hairline card': 'depth-card',
+  };
+
+  function textureCandidatesFor(item, meta) {
+    const candidates = [];
+    if (meta?.texture) candidates.push(meta.texture);
+    // Community submissions must render their uploaded JSON, never a bundled
+    // texture that merely happens to share the same display name.
+    if (item.source === 'community') return [...new Set(candidates)];
+    const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
+    if (slug) {
+      candidates.push('assets/basalt-library/' + slug + '.texture.json');
+      if (slug.startsWith('skia-')) candidates.push('assets/basalt-library/' + slug.slice(5) + '.texture.json');
+      if (slug === 'glow') candidates.push('assets/basalt-library/glow-gradient.texture.json');
+      if (slug === 'liquid-glass-ios') candidates.push('assets/basalt-library/liquid-glass.texture.json');
+    }
+    const alias = builtinTextureAliases[slugifyName(item.name)];
+    if (alias) candidates.push('assets/basalt-library/' + alias + '.texture.json');
+    return [...new Set(candidates)];
+  }
+
+  function texturePreviewFromText(text, displayName) {
+    try {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, displayName);
+      return { url: built && built.ok ? built.url : '', rawText: text };
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function tryTextureUrl(url, displayName) {
     try {
       const res = await fetch(url);
       if (!res.ok) return null;
       const text = await res.text();
-      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, displayName);
-      return built && built.ok ? built.url : null;
+      return texturePreviewFromText(text, displayName);
     } catch (_) {
       return null;
     }
@@ -506,32 +548,21 @@
 
   /** Screenshot → catalog preview SVG → texture JSON → needs screenshot (community). */
   async function resolveItemPreview(item) {
-    if (!item) return;
-    if (item.preview_url) return;
-    if (item._texturePreview || item._needsScreenshot) return;
+    if (!item || item._previewLoading || item._textureResolved || item._needsScreenshot) return;
     item._previewLoading = true;
+    let fallbackPreviewUrl = item.preview_url || '';
     try {
       await loadCatalogPreviewMap();
       const meta = lookupCatalogMeta(item);
       if (meta && meta.preview_url) {
-        item._texturePreview = meta.preview_url;
-        return;
+        fallbackPreviewUrl = meta.preview_url;
       }
 
-      const textureCandidates = [];
-      if (meta && meta.texture) textureCandidates.push(meta.texture);
-      const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
-      if (slug) {
-        textureCandidates.push('assets/basalt-library/' + slug + '.texture.json');
-        // common aliases
-        if (slug === 'glow') textureCandidates.push('assets/basalt-library/glow-gradient.texture.json');
-        if (slug === 'liquid-glass-ios') textureCandidates.push('assets/basalt-library/liquid-glass.texture.json');
-      }
-
-      for (const path of textureCandidates) {
-        const url = await tryTextureUrl(path, item.name);
-        if (url) {
-          item._texturePreview = url;
+      for (const path of textureCandidatesFor(item, meta)) {
+        const preview = await tryTextureUrl(path, item.name);
+        if (preview) {
+          if (preview.url) item._texturePreview = preview.url;
+          item._textureSource = preview.rawText;
           return;
         }
       }
@@ -545,9 +576,10 @@
           const res = await fetch(data.signedUrl);
           if (res.ok) {
             const text = await res.text();
-            const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, item.name);
-            if (built && built.ok) {
-              item._texturePreview = built.url;
+            const preview = texturePreviewFromText(text, item.name);
+            if (preview) {
+              if (preview.url) item._texturePreview = preview.url;
+              item._textureSource = preview.rawText;
               return;
             }
             item._needsScreenshot = true;
@@ -558,13 +590,15 @@
     } catch (_) {
       /* leave placeholder */
     } finally {
+      if (!item._texturePreview && fallbackPreviewUrl) item._texturePreview = fallbackPreviewUrl;
+      item._textureResolved = true;
       item._previewLoading = false;
     }
   }
 
   async function hydratePreviews(items) {
     const targets = (items || []).filter(
-      (i) => i && !i.preview_url && !i._texturePreview && !i._needsScreenshot
+      (i) => i && !i._previewLoading && !i._textureResolved && !i._needsScreenshot
     );
     if (!targets.length) return;
     await loadCatalogPreviewMap();
@@ -665,9 +699,27 @@
     return `<p class="card-by">by <span class="card-by-name">@${escapeHtml(handle)}</span></p>`;
   }
 
-  function thumbBlock(item) {
+  function livePreviewCanvas(item, itemIndex) {
+    if (!item?._textureSource) return '';
+    return `<canvas data-basalt-catalog-preview data-item-index="${itemIndex}" aria-hidden="true" hidden></canvas>`;
+  }
+
+  function mountLivePreviews(root, items) {
+    const preview = window.BasaltMarketPreview;
+    if (!root || !preview?.mountCatalogPreview) return;
+    root.querySelectorAll('canvas[data-basalt-catalog-preview]').forEach((canvas) => {
+      const item = items[Number(canvas.dataset.itemIndex)];
+      if (item?._textureSource) preview.mountCatalogPreview(canvas, item._textureSource);
+    });
+  }
+
+  function thumbBlock(item, itemIndex) {
     const src = previewFor(item);
-    return `<div class="swatch"><img alt="" src="${src.replace(/"/g, '&quot;')}" loading="lazy" /></div>`;
+    return `<div class="swatch"><img alt="" src="${src.replace(/"/g, '&quot;')}" loading="lazy" />${livePreviewCanvas(item, itemIndex)}</div>`;
+  }
+
+  function drawerPreviewBlock(item, src) {
+    return `<div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" />${livePreviewCanvas(item, 0)}</div>`;
   }
 
   function sortItems(list) {
@@ -700,6 +752,7 @@
   }
 
   function render() {
+    window.BasaltMarketPreview?.disposeCatalogPreviews?.(grid);
     const filtered = sortItems(
       allItems.filter((item) => {
         const matchesType = activeFilter === 'all' || item.type === activeFilter;
@@ -719,7 +772,7 @@
     setState('results');
     grid.innerHTML = filtered.map((item, idx) => `
       <div class="card" tabindex="0" role="button" data-idx="${idx}" aria-label="Open ${escapeHtml(item.name)}">
-        ${thumbBlock(item)}
+        ${thumbBlock(item, idx)}
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${itemBadges(item)}</div>
         ${creatorLine(item)}
         <h3>${escapeHtml(item.name)}</h3>
@@ -734,6 +787,7 @@
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(filtered[Number(card.dataset.idx)]); }
       });
     });
+    mountLivePreviews(grid, filtered);
   }
 
   function isOwner(item) {
@@ -742,6 +796,7 @@
 
   function closeDrawer() {
     if (!drawerRoot) return;
+    window.BasaltMarketPreview?.disposeCatalogPreviews?.(drawerBody);
     drawerRoot.classList.remove('is-open');
     drawerRoot.hidden = true;
     selectedItem = null;
@@ -970,7 +1025,7 @@
             ? (price <= 0 ? 'Owned' : 'Purchased')
             : (price <= 0 ? 'Get free' : 'Buy with Stripe — ' + priceLabel);
       drawerBody.innerHTML = `
-        <div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" /></div>
+        ${drawerPreviewBlock(item, src)}
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${badges}</div>
         <h2 class="drawer-title" id="drawer-title">${escapeHtml(item.name)}</h2>
         ${priceBlock}
@@ -1005,6 +1060,7 @@
       document.getElementById('drawer-edit-btn')?.addEventListener('click', () => renderDrawer(item, true));
       document.getElementById('drawer-buy-btn')?.addEventListener('click', () => sandboxBuy(item));
       document.getElementById('drawer-download-btn')?.addEventListener('click', () => downloadTemplate(item));
+      mountLivePreviews(drawerBody, [item]);
       return;
     }
 
@@ -1015,7 +1071,7 @@
         : '';
     const showDiscount = item.show_discount_label !== false;
     drawerBody.innerHTML = `
-      <div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" /></div>
+      ${drawerPreviewBlock(item, src)}
       <p class="eyebrow" style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Edit your listing</p>
       <div class="drawer-edit">
         <label>Name</label>

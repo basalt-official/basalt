@@ -1,0 +1,13 @@
+{
+  "id": "aurora-curtain",
+  "target": "background",
+  "renderer": "shader",
+  "inputs": ["time"],
+  "fallback": {
+    "material": "paint",
+    "backgroundColor": "#05070d",
+    "highlightColor": "rgba(65,118,255,0.46)",
+    "lowlightColor": "rgba(151,64,255,0.34)"
+  },
+  "shaderSource": "uniform float2 resolution;\nuniform float time;\n\nfloat hash(float2 p) {\n  return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);\n}\n\nfloat noise(float2 p) {\n  float2 i = floor(p);\n  float2 f = fract(p);\n  float2 u = f * f * (3.0 - 2.0 * f);\n  return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), u.x),\n             mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), u.x), u.y);\n}\n\nfloat fbm(float2 p) {\n  float value = 0.0;\n  value += noise(p) * 0.55;\n  value += noise(p * 2.03 + 17.2) * 0.28;\n  value += noise(p * 4.07 + 9.4) * 0.12;\n  value += noise(p * 8.11 + 2.8) * 0.05;\n  return value;\n}\n\nhalf3 auroraBand(float2 uv, float center, float width, half3 color, float phase) {\n  float drift = fbm(float2(uv.x * 1.7 + phase, uv.y * 1.15 - time * 0.045));\n  float wave = sin(uv.x * 3.8 + time * 0.16 + phase) * 0.055;\n  float ridge = abs(uv.y - (center + wave + (drift - 0.5) * 0.30));\n  float glow = exp(-ridge * ridge / max(0.002, width * width));\n  glow *= smoothstep(-0.08, 0.34, uv.x) * smoothstep(1.08, 0.54, uv.x);\n  return color * glow;\n}\n\nhalf4 main(float2 xy) {\n  float2 safeResolution = max(resolution, float2(1.0));\n  float2 uv = xy / safeResolution;\n  float aspect = safeResolution.x / safeResolution.y;\n  float2 centered = (uv - 0.5) * float2(aspect, 1.0);\n\n  half3 color = mix(half3(0.008, 0.012, 0.026), half3(0.016, 0.012, 0.035), uv.y);\n  color += auroraBand(uv, 0.23, 0.19, half3(0.10, 0.28, 0.78), 0.0) * 0.86;\n  color += auroraBand(uv, 0.48, 0.22, half3(0.38, 0.10, 0.72), 4.1) * 0.72;\n  color += auroraBand(uv, 0.71, 0.18, half3(0.04, 0.42, 0.48), 8.7) * 0.58;\n\n  float haze = fbm(uv * float2(2.2, 1.6) + float2(time * 0.018, -time * 0.012));\n  color += half3(0.08, 0.10, 0.22) * haze * 0.13;\n  float vignette = smoothstep(0.25, 1.0, length(centered));\n  color *= 1.0 - vignette * 0.55;\n  color += half3(0.035, 0.045, 0.085) * (1.0 - uv.y) * 0.25;\n  return half4(clamp(color, half3(0.0), half3(1.0)), 1.0);\n}\n"
+}
