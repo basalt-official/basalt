@@ -89,10 +89,13 @@
   .user-chip{ display:flex; align-items:center; gap:10px; padding:6px 10px 12px; }
   .avatar{
     width:32px; height:32px; border-radius:3px; flex-shrink:0;
-    background:linear-gradient(135deg, #ff8a5c, #e8622c);
+    overflow:hidden; background:var(--panel-2); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-size:12px; font-weight:600; color:#1a0d06;
+    font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text-dim);
   }
+  .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .avatar img[hidden]{ display:none; }
+  .avatar.has-image .avatar-fallback{ display:none; }
   .user-name{ font-size:13px; font-weight:500; margin:0; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px; }
   .user-plan{ font-size:12px; color:var(--text-faint); margin:0; line-height:1.3; }
   .logout{
@@ -140,7 +143,7 @@
 
   .chart{ display:flex; align-items:flex-end; gap:10px; height:140px; }
   .chart .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:8px; }
-  .chart .bar{ width:100%; min-height:2px; border-radius:2px 2px 2px 2px; background:linear-gradient(180deg, #ff8a5c, var(--accent)); opacity:0.95; }
+  .chart .bar{ width:100%; min-height:2px; border-radius:2px; background:var(--accent); opacity:0.9; }
   .chart .bar.is-empty{ opacity:0.2; }
   .chart .bar-label{ font-size:11px; color:var(--text-faint); font-family:var(--mono); }
 
@@ -325,7 +328,10 @@
     </nav>
     <div class="sidebar-foot">
       <div class="user-chip">
-        <div class="avatar" id="avatar">·</div>
+        <div class="avatar" id="avatar" aria-label="Account avatar">
+          <img id="avatarImage" alt="" hidden referrerpolicy="no-referrer">
+          <span class="avatar-fallback" id="avatarFallback">·</span>
+        </div>
         <div>
           <p class="user-name" id="sidebarEmail">…</p>
           <p class="user-plan">Free · Beta</p>
@@ -771,6 +777,54 @@
     return local.slice(0, 2).toUpperCase();
   }
 
+  function profileImageUrl(user) {
+    const metadata = user?.user_metadata || {};
+    const identities = Array.isArray(user?.identities) ? user.identities : [];
+    const candidates = [
+      metadata.avatar_url,
+      metadata.picture,
+      metadata.photo_url,
+      metadata.avatarUrl,
+      ...identities.flatMap((identity) => [
+        identity?.identity_data?.avatar_url,
+        identity?.identity_data?.picture,
+      ]),
+    ];
+    for (const value of candidates) {
+      try {
+        const url = new URL(String(value || ''));
+        if (url.protocol === 'https:') return url.href;
+      } catch (_) {}
+    }
+    return '';
+  }
+
+  function renderAvatar(user, email, name) {
+    const root = document.getElementById('avatar');
+    const image = document.getElementById('avatarImage');
+    const fallback = document.getElementById('avatarFallback');
+    if (!root || !image || !fallback) return;
+
+    const showFallback = () => {
+      image.removeAttribute('src');
+      image.hidden = true;
+      root.classList.remove('has-image');
+      root.setAttribute('aria-label', 'Account avatar');
+    };
+    fallback.textContent = initials(name || email);
+    const src = profileImageUrl(user);
+    if (!src) {
+      showFallback();
+      return;
+    }
+    image.alt = name ? name + ' profile photo' : 'Profile photo';
+    image.onerror = showFallback;
+    image.src = src;
+    image.hidden = false;
+    root.classList.add('has-image');
+    root.setAttribute('aria-label', image.alt);
+  }
+
   function dayKey(d) {
     const x = new Date(d);
     return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
@@ -1088,7 +1142,7 @@
     const email = user.email || user.id;
     const name = (user.user_metadata && user.user_metadata.full_name) || '';
     document.getElementById('sidebarEmail').textContent = email;
-    document.getElementById('avatar').textContent = initials(email);
+    renderAvatar(user, email, name);
     document.getElementById('email').value = email;
     document.getElementById('displayName').value = name;
     document.getElementById('syncKey').textContent = user.id;
