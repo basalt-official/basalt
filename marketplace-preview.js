@@ -429,21 +429,27 @@
     for (let index = 0; index < effect.getUniformCount(); index += 1) {
       const name = effect.getUniformName(index)
       const info = effect.getUniform(index)
+      const slots = Math.max(1, Number(info.columns || 1) * Number(info.rows || 1))
       let supplied
-      if (name === 'resolution') supplied = [width, height]
-      else if (name === 'time') supplied = [elapsed]
-      else if (name === 'touch') supplied = [touch.x, touch.y]
+      // Basalt's native convention plus ShaderToy-style aliases. These are
+      // names in the SkSL source, not a GLSL compatibility layer.
+      if (name === 'resolution' || name === 'uResolution' || name === 'iResolution') {
+        supplied = [width, height, 1]
+      } else if (name === 'time' || name === 'uTime' || name === 'iTime') {
+        supplied = [elapsed]
+      } else if (name === 'touch' || name === 'mouse' || name === 'uMouse' || name === 'iMouse') {
+        supplied = [touch.x, touch.y, touch.x, touch.y]
+      }
       // A catalog card has no device sensors. Sweep a small virtual tilt so
       // tilt-reactive materials still demonstrate their real highlight motion.
       else if (name === 'tiltX') supplied = [Math.sin(elapsed * 0.72) * 0.34]
       else if (name === 'tiltY') supplied = [Math.cos(elapsed * 0.61) * 0.24]
       else throw new Error('The web preview does not supply the uniform "' + name + '".')
 
-      const slots = Math.max(1, Number(info.columns || 1) * Number(info.rows || 1))
-      if (supplied.length !== slots) {
+      if (supplied.length < slots) {
         throw new Error('Uniform "' + name + '" expects ' + slots + ' values, not ' + supplied.length + '.')
       }
-      supplied.forEach(function (value, offset) {
+      supplied.slice(0, slots).forEach(function (value, offset) {
         values[Number(info.slot || 0) + offset] = value
       })
     }
@@ -476,6 +482,17 @@
     if (!state) return
     catalogRenderers.delete(canvas)
     disposeCatalogRenderer(state)
+  }
+
+  function setCatalogPreviewTouch(canvas, clientX, clientY) {
+    const state = catalogRenderers.get(canvas)
+    if (!state || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return false
+    const bounds = canvas.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return false
+    state.touch.x = Math.max(0, Math.min(state.canvas.width, ((clientX - bounds.left) / bounds.width) * state.canvas.width))
+    state.touch.y = Math.max(0, Math.min(state.canvas.height, ((clientY - bounds.top) / bounds.height) * state.canvas.height))
+    if (state.visible) scheduleCatalogFrame()
+    return true
   }
 
   function drawCatalogFrame(state, now) {
@@ -856,7 +873,7 @@
     if (!root) return null
     root.innerHTML =
       '<div class="shader-preview-head">' +
-        '<div><strong>Live SkSL preview</strong><span>Skia RuntimeEffect in your browser</span></div>' +
+        '<div><strong>Live button / panel preview</strong><span>Move across it to test the shader before submitting</span></div>' +
         '<div>' +
           '<button type="button" class="shader-preview-control" data-preview-retry hidden>Retry preview</button>' +
           '<button type="button" class="shader-preview-control" data-preview-toggle>Pause</button>' +
@@ -944,6 +961,7 @@
     tryBuildLivePreviewFromTexture,
     // Marketplace live cards (CanvasKit is shared; off-screen cards are paused).
     mountCatalogPreview,
+    setCatalogPreviewTouch,
     disposeCatalogPreviews,
   }
 })()

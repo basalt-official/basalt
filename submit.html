@@ -6,7 +6,7 @@
 <title>Submit to Basalt Library</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="validator.js?v=20260805-sksl1"></script>
-<script src="marketplace-preview.js?v=20260809-canvaskit2"></script>
+<script src="marketplace-preview.js?v=20260820-submit-live-preview"></script>
 <link rel="stylesheet" href="basalt-ui.css">
 <style>
   :root {
@@ -598,7 +598,7 @@
     <label>Thumbnail</label>
     <div class="dropzone" id="previewDropzone" style="margin-top:0;padding:16px;">
       <input type="file" id="previewInput" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" />
-      <div class="dropzone-label"><strong>Screenshot optional if JSON previews</strong> — PNG/JPG/WebP. If you skip it, we try to build a thumb from your texture JSON. If that fails, a screenshot is required.</div>
+      <div class="dropzone-label"><strong>Thumbnail optional</strong> — PNG/JPG/WebP. If you skip it, Basalt captures the live button/panel preview when possible. Files that cannot render yet still submit with a placeholder.</div>
       <div class="filename" id="previewFilename"></div>
     </div>
     <p class="hint">Texture / shader JSON or raw SkSL. You keep <strong>90%</strong>. Buyers can purchase even before you add a bank — Basalt holds funds until you set up payouts (one form, after your first listing).</p>
@@ -1088,30 +1088,6 @@
       clearComponentFile();
       return;
     }
-    let previewUrl = null;
-    if (selectedPreviewFile) {
-      // Soft client cap only — not a Supabase hard limit. Thumbnails stay lightweight.
-      if (selectedPreviewFile.size > 2 * 1024 * 1024) {
-        setStatus(formStatus, "Preview image must be under 2MB.", "err");
-        submitBtn.disabled = false;
-        return;
-      }
-      previewUrl = await fileToDataUrl(selectedPreviewFile);
-    } else {
-      const built = await window.BasaltMarketPreview?.tryBuildPreviewFromTexture(fileText, itemNameVal);
-      if (built && built.ok) {
-        previewUrl = built.url;
-      } else {
-        setStatus(
-          formStatus,
-          window.BasaltMarketPreview?.SCREENSHOT_REQUIRED_MSG ||
-            "Upload a screenshot — we couldn't auto-preview your .json.",
-          "err"
-        );
-        submitBtn.disabled = false;
-        return;
-      }
-    }
     const { valid, errors, warnings } = validateSubmissionJson(fileText);
     if (!valid) {
       setStatus(formStatus, "Can't submit — fix these:\n" + errors.map((e) => "• " + e).join("\n"), "err");
@@ -1121,6 +1097,30 @@
     // Unknown / future fields are warnings only — still upload; review decides.
     if (warnings && warnings.length) {
       console.info("[basalt] submission warnings:", warnings);
+    }
+
+    let previewUrl = null;
+    let autoPreviewUnavailable = false;
+    if (selectedPreviewFile) {
+      // Soft client cap only — not a Supabase hard limit. Thumbnails stay lightweight.
+      if (selectedPreviewFile.size > 2 * 1024 * 1024) {
+        setStatus(formStatus, "Preview image must be under 2MB.", "err");
+        submitBtn.disabled = false;
+        return;
+      }
+      previewUrl = await fileToDataUrl(selectedPreviewFile);
+    } else {
+      // The submit stage already runs the same Skia RuntimeEffect as Basalt.
+      // Reuse it to save a real thumbnail instead of making a screenshot a
+      // requirement. A listing can still be reviewed if its effect needs an
+      // unavailable child shader/background or this browser cannot render it.
+      try {
+        const built = await window.BasaltMarketPreview?.tryBuildLivePreviewFromTexture(fileText, itemNameVal);
+        if (built?.ok && built.url) previewUrl = built.url;
+        else autoPreviewUnavailable = true;
+      } catch (_) {
+        autoPreviewUnavailable = true;
+      }
     }
 
     setStatus(formStatus, "Uploading…", "pending");
@@ -1205,17 +1205,21 @@
         visibility: privateTest ? "private" : "public",
       });
       const needPayouts = !privateTest && price > 0 && !payoutsReady;
+      const successMessage = privateTest
+        ? "Saved privately. In Basalt, open Library → My Stuff and press Refresh. Only this signed-in account can load it."
+        : needPayouts
+        ? "Submitted — optional next: add a bank so you can cash out (sales work either way)…"
+        : newId
+          ? "Submitted — opening your dashboard so you can find this listing…"
+          : "Submitted — opening dashboard…";
       setStatus(
         formStatus,
-        privateTest
-          ? "Saved privately. In Basalt, open Library → My Stuff and press Refresh. Only this signed-in account can load it."
-          : needPayouts
-          ? "Submitted — optional next: add a bank so you can cash out (sales work either way)…"
-          : newId
-            ? "Submitted — opening your dashboard so you can find this listing…"
-            : "Submitted — opening dashboard…",
+        successMessage + (autoPreviewUnavailable ? " A reviewer can add a thumbnail later." : ""),
         "ok"
       );
+      if (autoPreviewUnavailable) {
+        console.info("[basalt] submitted without an automatic thumbnail; a reviewer can add one later.");
+      }
       if (privateTest) {
         clearComponentFile();
         submitBtn.disabled = false;

@@ -223,7 +223,27 @@
   .drawer-preview { width: 100%; aspect-ratio: 16/10; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; background: #0d0d0f; }
   .drawer-preview { position: relative; }
   .drawer-preview img, .drawer-preview canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .drawer-preview canvas { position: absolute; inset: 0; pointer-events: none; }
+  .drawer-preview img, .drawer-preview canvas { position: absolute; inset: 0; }
+  .drawer-preview canvas { pointer-events: none; z-index: 1; }
+  .drawer-preview.is-background-hidden [data-preview-background] { visibility: hidden; }
+  .drawer-preview-demo {
+    position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, -50%);
+    touch-action: none; cursor: grab;
+  }
+  .drawer-preview-demo:active { cursor: grabbing; }
+  .drawer-preview-demo button {
+    min-width: 128px; padding: 10px 16px; border: 1px solid rgba(255,255,255,.64); border-radius: 12px;
+    background: rgba(15,17,24,.62); color: #fff; font: 700 13px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.28); cursor: inherit; backdrop-filter: blur(9px);
+  }
+  .drawer-preview-controls {
+    position: absolute; right: 8px; bottom: 8px; z-index: 3; display: flex; gap: 8px; align-items: center;
+    padding: 6px 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 5px;
+    background: rgba(9,10,14,.74); color: rgba(255,255,255,.8); font-size: 11px; backdrop-filter: blur(9px);
+  }
+  .drawer-preview-controls label { display: flex; gap: 5px; align-items: center; cursor: pointer; }
+  .drawer-preview-controls input { accent-color: var(--accent); }
+  .drawer-preview-hint { color: rgba(255,255,255,.56); }
   .drawer-title { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
   .drawer-desc { font-size: 14px; line-height: 1.55; color: var(--text-dim); margin: 0 0 16px; }
   .drawer-meta { font-size: 12px; color: var(--text-dim); margin: 0 0 18px; }
@@ -457,19 +477,6 @@
     return window.BasaltMarketPreview?.previewForItem(item) || '';
   }
 
-  let catalogPreviewMap = null;
-  async function loadCatalogPreviewMap() {
-    if (catalogPreviewMap) return catalogPreviewMap;
-    try {
-      const res = await fetch('catalog-previews.json', { cache: 'force-cache' });
-      if (res.ok) catalogPreviewMap = await res.json();
-      else catalogPreviewMap = {};
-    } catch (_) {
-      catalogPreviewMap = {};
-    }
-    return catalogPreviewMap;
-  }
-
   function slugifyName(name) {
     return String(name || '')
       .toLowerCase()
@@ -477,70 +484,59 @@
       .replace(/^-|-$/g, '');
   }
 
-  function lookupCatalogMeta(item) {
-    const map = catalogPreviewMap || {};
-    const keys = [
-      item.basalt_item_id,
-      item.slug,
-      item.variant,
-      item.id,
-      item.name && String(item.name).toLowerCase(),
-      item.name && slugifyName(item.name),
-    ]
-      .filter(Boolean)
-      .map((k) => String(k).toLowerCase());
-    for (const k of keys) {
-      if (map[k]) return map[k];
-    }
-    return null;
+  // A listing owns its preview source. We never infer a filename from its
+  // title or slug: that would make a new listing show the wrong shader.
+  // Preview source is intentionally separate from the paid downloadable file;
+  // anything a browser runs can be copied from the network inspector.
+  function previewShaderSourceUrlsFor(item) {
+    return [...new Set([
+      item?.preview_shader_url,
+      item?.preview_texture_url,
+      item?.preview_source_url,
+    ].filter((url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim())))];
   }
 
-  const builtinTextureAliases = {
-    'flame aura': 'flame',
-    flame: 'flame',
-    glow: 'glow-gradient',
-    shimmer: 'shimmer-foil',
-    'liquid glass': 'liquid-glass',
-    'traveling border': 'traveling-border',
-    'soft fade': 'soft-fade',
-    'hairline card': 'depth-card',
-  };
-
-  function textureCandidatesFor(item, meta) {
-    const candidates = [];
-    if (meta?.texture) candidates.push(meta.texture);
-    // Community submissions must render their uploaded JSON, never a bundled
-    // texture that merely happens to share the same display name.
-    if (item.source === 'community') return [...new Set(candidates)];
-    const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
-    if (slug) {
-      candidates.push('assets/basalt-library/' + slug + '.texture.json');
-      if (slug.startsWith('skia-')) candidates.push('assets/basalt-library/' + slug.slice(5) + '.texture.json');
-      if (slug === 'glow') candidates.push('assets/basalt-library/glow-gradient.texture.json');
-      if (slug === 'liquid-glass-ios') candidates.push('assets/basalt-library/liquid-glass.texture.json');
-    }
-    const alias = builtinTextureAliases[slugifyName(item.name)];
-    if (alias) candidates.push('assets/basalt-library/' + alias + '.texture.json');
-    return [...new Set(candidates)];
+  function downloadSourceUrlsFor(item) {
+    return [...new Set([
+      item?.shader_url,
+      item?.texture_url,
+      item?.source_url,
+    ].filter((url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim())))];
   }
 
-  function texturePreviewFromText(text, displayName) {
+  function texturePreviewFromText(text, displayName, item) {
+    const source = String(text || '').trim();
+    if (!source || /^<!doctype html|^<html[\s>]/i.test(source)) return null;
     try {
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(source);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(text, displayName);
-      return { url: built && built.ok ? built.url : '', rawText: text };
+      const built = window.BasaltMarketPreview?.tryBuildPreviewFromTexture(source, displayName);
+      return {
+        url: built && built.ok ? built.url : '',
+        rawText: source,
+        backgroundUrl: typeof parsed.background?.url === 'string' ? parsed.background.url : '',
+      };
     } catch (_) {
-      return null;
+      // Raw SkSL is intentionally supported so an artist can submit the same
+      // `half4 main(float2 xy)` program Basalt runs, without a wrapper file.
+      if (!/\bmain\s*\(/.test(source)) return null;
+      return {
+        url: '',
+        rawText: JSON.stringify({
+          renderer: 'shader',
+          target: item?.preview_target === 'panel' ? 'panel' : 'button',
+          shaderSource: source,
+        }),
+      };
     }
   }
 
-  async function tryTextureUrl(url, displayName) {
+  async function tryShaderUrl(url, displayName, item) {
     try {
       const res = await fetch(url);
       if (!res.ok) return null;
       const text = await res.text();
-      return texturePreviewFromText(text, displayName);
+      return texturePreviewFromText(text, displayName, item);
     } catch (_) {
       return null;
     }
@@ -552,41 +548,16 @@
     item._previewLoading = true;
     let fallbackPreviewUrl = item.preview_url || '';
     try {
-      await loadCatalogPreviewMap();
-      const meta = lookupCatalogMeta(item);
-      if (meta && meta.preview_url) {
-        fallbackPreviewUrl = meta.preview_url;
-      }
-
-      for (const path of textureCandidatesFor(item, meta)) {
-        const preview = await tryTextureUrl(path, item.name);
+      for (const url of previewShaderSourceUrlsFor(item)) {
+        const preview = await tryShaderUrl(url, item.name, item);
         if (preview) {
           if (preview.url) item._texturePreview = preview.url;
+          if (preview.backgroundUrl) item._backgroundUrl = preview.backgroundUrl;
           item._textureSource = preview.rawText;
           return;
         }
       }
 
-      // Community: try storage JSON
-      if (item.source === 'community' && item.file_path) {
-        const { data, error } = await supabase.storage
-          .from('pending-submissions')
-          .createSignedUrl(item.file_path, 120);
-        if (!error && data?.signedUrl) {
-          const res = await fetch(data.signedUrl);
-          if (res.ok) {
-            const text = await res.text();
-            const preview = texturePreviewFromText(text, item.name);
-            if (preview) {
-              if (preview.url) item._texturePreview = preview.url;
-              item._textureSource = preview.rawText;
-              return;
-            }
-            item._needsScreenshot = true;
-            return;
-          }
-        }
-      }
     } catch (_) {
       /* leave placeholder */
     } finally {
@@ -601,12 +572,34 @@
       (i) => i && !i._previewLoading && !i._textureResolved && !i._needsScreenshot
     );
     if (!targets.length) return;
-    await loadCatalogPreviewMap();
     const chunk = 6;
     for (let i = 0; i < targets.length; i += chunk) {
       await Promise.all(targets.slice(i, i + chunk).map(resolveItemPreview));
       render();
     }
+  }
+
+  // Source columns were added after the original marketplace tables. Query them
+  // separately so an older project keeps loading while a newer project gains
+  // live previews automatically. No names, slugs, or local asset paths involved.
+  async function attachOptionalSourceFields(table, rows) {
+    if (!Array.isArray(rows) || !rows.length) return rows || [];
+    const result = rows.map((row) => ({ ...row }));
+    const byId = new Map(result.map((row) => [String(row.id), row]));
+    for (const field of [
+      'preview_shader_url', 'preview_texture_url', 'preview_source_url',
+      'shader_url', 'texture_url', 'source_url', 'background_url', 'preview_target',
+    ]) {
+      try {
+        const { data, error } = await supabase.from(table).select('id, ' + field);
+        if (error || !Array.isArray(data)) continue;
+        data.forEach((row) => {
+          const target = byId.get(String(row.id));
+          if (target && row[field] != null) target[field] = row[field];
+        });
+      } catch (_) {}
+    }
+    return result;
   }
 
   function setState(state) {
@@ -719,7 +712,65 @@
   }
 
   function drawerPreviewBlock(item, src) {
-    return `<div class="drawer-preview"><img alt="" src="${src.replace(/"/g, '&quot;')}" />${livePreviewCanvas(item, 0)}</div>`;
+    const backgroundSrc = item.background_url || item._backgroundUrl || src;
+    return `<div class="drawer-preview" data-interactive-preview>
+      <img data-preview-background alt="" src="${backgroundSrc.replace(/"/g, '&quot;')}" />
+      ${livePreviewCanvas(item, 0)}
+      <div class="drawer-preview-demo" data-preview-demo style="left:50%;top:50%;">
+        <button type="button" data-preview-demo-button aria-label="Drag preview button with a mouse, touch, or arrow keys">Preview button</button>
+      </div>
+      <div class="drawer-preview-controls">
+        <label><input type="checkbox" data-preview-background-toggle checked /> Background</label>
+        <span class="drawer-preview-hint">Drag</span>
+      </div>
+    </div>`;
+  }
+
+  function wireInteractiveDrawerPreview(root) {
+    const stage = root?.querySelector('[data-interactive-preview]');
+    const demo = stage?.querySelector('[data-preview-demo]');
+    const button = stage?.querySelector('[data-preview-demo-button]');
+    const canvas = stage?.querySelector('canvas[data-basalt-catalog-preview]');
+    const backgroundToggle = stage?.querySelector('[data-preview-background-toggle]');
+    if (!stage || !demo || !button || !backgroundToggle) return;
+
+    const setPosition = (left, top) => {
+      demo.style.left = Math.max(12, Math.min(88, left)) + '%';
+      demo.style.top = Math.max(16, Math.min(84, top)) + '%';
+    };
+    const positionFromEvent = (event) => {
+      const bounds = stage.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      setPosition(
+        ((event.clientX - bounds.left) / bounds.width) * 100,
+        ((event.clientY - bounds.top) / bounds.height) * 100
+      );
+      window.BasaltMarketPreview?.setCatalogPreviewTouch?.(canvas, event.clientX, event.clientY);
+    };
+
+    backgroundToggle.addEventListener('change', () => {
+      stage.classList.toggle('is-background-hidden', !backgroundToggle.checked);
+    });
+    button.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      button.setPointerCapture?.(event.pointerId);
+      positionFromEvent(event);
+    });
+    button.addEventListener('pointermove', (event) => {
+      if (button.hasPointerCapture?.(event.pointerId)) positionFromEvent(event);
+    });
+    button.addEventListener('pointerup', (event) => button.releasePointerCapture?.(event.pointerId));
+    button.addEventListener('pointercancel', (event) => button.releasePointerCapture?.(event.pointerId));
+    button.addEventListener('keydown', (event) => {
+      const step = event.shiftKey ? 10 : 3;
+      const left = Number.parseFloat(demo.style.left) || 50;
+      const top = Number.parseFloat(demo.style.top) || 50;
+      if (event.key === 'ArrowLeft') { event.preventDefault(); setPosition(left - step, top); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); setPosition(left + step, top); }
+      if (event.key === 'ArrowUp') { event.preventDefault(); setPosition(left, top - step); }
+      if (event.key === 'ArrowDown') { event.preventDefault(); setPosition(left, top + step); }
+    });
   }
 
   function sortItems(list) {
@@ -829,7 +880,9 @@
   }
 
   function triggerBrowserDownload(text, filename) {
-    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const blob = new Blob([text], {
+      type: /\.sksl$/i.test(filename) ? 'text/plain;charset=utf-8' : 'application/json;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -914,6 +967,14 @@
   }
 
   async function resolveTemplateJson(item) {
+    // The buyer download URL is separate from the public preview program.
+    for (const url of downloadSourceUrlsFor(item)) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.text();
+      } catch (_) {}
+    }
+
     // Community upload
     if (item.source === 'community' && item.file_path) {
       const { data, error } = await supabase.storage
@@ -932,24 +993,7 @@
       );
     }
 
-    // Official / catalog — local texture assets + catalog map
-    await loadCatalogPreviewMap();
-    const meta = lookupCatalogMeta(item);
-    const candidates = [];
-    if (meta && meta.texture) candidates.push(meta.texture);
-    const slug = item.basalt_item_id || item.slug || item.variant || slugifyName(item.name);
-    if (slug) {
-      candidates.push('assets/basalt-library/' + slug + '.texture.json');
-      if (slug === 'glow') candidates.push('assets/basalt-library/glow-gradient.texture.json');
-      if (slug === 'liquid-glass-ios') candidates.push('assets/basalt-library/liquid-glass.texture.json');
-    }
-    for (const path of candidates) {
-      try {
-        const res = await fetch(path);
-        if (res.ok) return await res.text();
-      } catch (_) {}
-    }
-    throw new Error('No .json file found for this listing (animations/bundles may not have a texture file).');
+    throw new Error('This listing has no saved shader source. Add a durable shader_url to the listing, or restore its uploaded file.');
   }
 
   async function downloadTemplate(item) {
@@ -969,14 +1013,14 @@
       if (btn) btn.disabled = true;
       setPay('Preparing download…');
       const text = await resolveTemplateJson(item);
-      // Validate JSON so we don't save HTML error pages
-      JSON.parse(text);
-      const filename = safeFileName(item);
+      const isJson = text.trim().startsWith('{');
+      if (isJson) JSON.parse(text); // Avoid saving an HTML error page as JSON.
+      const filename = isJson ? safeFileName(item) : safeFileName(item).replace(/\.texture\.json$/i, '.sksl');
       triggerBrowserDownload(text, filename);
       setPay(
         'Downloaded ' +
           filename +
-          ' — put it in your app’s assets/basalt-library/ folder, then use the matching PremiumButton / PremiumPanel variant.',
+          ' — this is the source saved on this listing.',
         'ok'
       );
       captureWeb('web_marketplace_download', {
@@ -1061,6 +1105,7 @@
       document.getElementById('drawer-buy-btn')?.addEventListener('click', () => sandboxBuy(item));
       document.getElementById('drawer-download-btn')?.addEventListener('click', () => downloadTemplate(item));
       mountLivePreviews(drawerBody, [item]);
+      wireInteractiveDrawerPreview(drawerBody);
       return;
     }
 
@@ -1114,6 +1159,7 @@
       </div>
       <p class="drawer-status" id="drawer-status"></p>
     `;
+    wireInteractiveDrawerPreview(drawerBody);
 
     const syncStockUi = () => {
       const lim = document.getElementById('edit-stock-limited')?.checked;
@@ -1700,6 +1746,13 @@
         }
       } catch (_) {}
 
+      const [catalogWithSources, submissionsWithSources] = await Promise.all([
+        attachOptionalSourceFields('catalog_items', catalogRes.data || []),
+        attachOptionalSourceFields('submissions', pendingRes.error ? [] : pendingRes.data || []),
+      ]);
+      catalogRes = { ...catalogRes, data: catalogWithSources };
+      if (!pendingRes.error) pendingRes = { ...pendingRes, data: submissionsWithSources };
+
       const official = (catalogRes.data || []).map((row) => ({
         ...row,
         source: 'official',
@@ -1722,6 +1775,14 @@
         stock_unlimited: row.stock_unlimited !== false,
         stock_remaining: row.stock_remaining != null ? row.stock_remaining : null,
         preview_url: row.preview_url || null,
+        preview_shader_url: row.preview_shader_url || null,
+        preview_texture_url: row.preview_texture_url || null,
+        preview_source_url: row.preview_source_url || null,
+        shader_url: row.shader_url || null,
+        texture_url: row.texture_url || null,
+        source_url: row.source_url || null,
+        background_url: row.background_url || null,
+        preview_target: row.preview_target || null,
         file_path: row.file_path || null,
         source: 'community',
         sortKey: -1,
