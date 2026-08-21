@@ -473,7 +473,7 @@
     <div id="market-drawer-body"></div>
   </aside>
 </div>
-<script src="marketplace-preview.js?v=20260820-host-preview"></script>
+<script src="marketplace-preview.js?v=20260820-official-preview"></script>
 
 
 <div id="auth-modal-root" hidden>
@@ -554,14 +554,39 @@
   }
 
   // A listing owns its preview source. We never infer a filename from its
-  // title or slug: that would make a new listing show the wrong shader.
-  // Preview source is intentionally separate from the paid downloadable file;
-  // anything a browser runs can be copied from the network inspector.
+  // title or slug alone for community uploads — that would show the wrong shader.
+  // Official Basalt skins are different: catalog `slug` is the library id
+  // (`skia-flame`), and the public preview JSON ships next to this site as
+  // `<variant>.texture.json` (same file the extension installs).
+  function officialPreviewSourceUrlsFor(item) {
+    if (!item || item.source === 'community') return [];
+    const slug = String(item.slug || item.basalt_item_id || '').trim();
+    if (!slug) return [];
+    const origin = typeof location !== 'undefined' ? location.href : '';
+    const toAbs = (rel) => {
+      try {
+        return new URL(rel, origin).href;
+      } catch (_) {
+        return rel;
+      }
+    };
+    const urls = [];
+    urls.push(toAbs(slug + '.texture.json'));
+    const skia = /^skia-(.+)$/i.exec(slug);
+    if (skia) urls.push(toAbs(skia[1] + '.texture.json'));
+    // Older sandbox rows used bare variant slugs.
+    if (!skia && !/\.texture\.json$/i.test(slug)) {
+      urls.push(toAbs(slug.replace(/^skia-/i, '') + '.texture.json'));
+    }
+    return [...new Set(urls.filter(Boolean))];
+  }
+
   function previewShaderSourceUrlsFor(item) {
     return [...new Set([
       item?.preview_shader_url,
       item?.preview_texture_url,
       item?.preview_source_url,
+      ...officialPreviewSourceUrlsFor(item),
     ].filter((url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim())))];
   }
 
@@ -570,6 +595,9 @@
       item?.shader_url,
       item?.texture_url,
       item?.source_url,
+      // Official free/paid sandbox skins: public texture on this site is also the
+      // downloadable source when no durable shader_url column exists yet.
+      ...officialPreviewSourceUrlsFor(item),
     ].filter((url) => typeof url === 'string' && /^https?:\/\//i.test(url.trim())))];
   }
 
