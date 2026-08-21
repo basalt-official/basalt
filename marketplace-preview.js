@@ -463,7 +463,9 @@
   function disposeCatalogRenderer(state) {
     if (!state) return
     if (catalogObserver) {
-      try { catalogObserver.unobserve(state.canvas) } catch (_) {}
+      try {
+        catalogObserver.unobserve(state.observeTarget || state.canvas)
+      } catch (_) {}
     }
     ;['shader', 'paint', 'effect', 'surface'].forEach(function (key) {
       const resource = state[key]
@@ -474,13 +476,19 @@
       }
       state[key] = null
     })
-    if (state.canvas) state.canvas.hidden = true
+    if (state.canvas) {
+      state.canvas.hidden = true
+      state.canvas.style.opacity = '0'
+    }
   }
 
   function disposeCatalogPreview(canvas) {
     const state = catalogRenderers.get(canvas)
     if (!state) return
     catalogRenderers.delete(canvas)
+    if (state.observeTarget && catalogObserveTargets) {
+      catalogObserveTargets.delete(state.observeTarget)
+    }
     disposeCatalogRenderer(state)
   }
 
@@ -548,11 +556,16 @@
     })
   }
 
+  // Observe the visible parent (swatch / preview host), never a `hidden` canvas —
+  // IntersectionObserver ignores display:none nodes, which killed live card motion.
+  const catalogObserveTargets = new Map()
+
   function ensureCatalogObserver() {
     if (catalogObserver || typeof IntersectionObserver !== 'function') return
     catalogObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        const state = catalogRenderers.get(entry.target)
+        const canvas = catalogObserveTargets.get(entry.target)
+        const state = canvas ? catalogRenderers.get(canvas) : null
         if (!state) return
         state.visible = entry.isIntersecting
         if (state.visible) {
@@ -560,7 +573,7 @@
           scheduleCatalogFrame()
         }
       })
-    }, { rootMargin: '160px 0px' })
+    }, { rootMargin: '160px 0px', threshold: 0.01 })
   }
 
   async function startCatalogRenderer(state) {
@@ -597,6 +610,7 @@
       state.startedAt = performance.now()
       state.initialized = true
       state.canvas.hidden = false
+      state.canvas.style.opacity = '1'
       drawCatalogFrame(state, state.startedAt + 1400)
       scheduleCatalogFrame()
     } catch (_) {
@@ -650,7 +664,7 @@
    */
   function styleInteractiveDemoHost(button, rawText) {
     if (!(button instanceof HTMLElement)) return { ok: false, kind: 'none' }
-    button.classList.remove('is-liquid-glass', 'is-panel-host')
+    button.classList.remove('is-liquid-glass', 'is-panel-host', 'is-shader-host')
     button.style.removeProperty('--basalt-glass-blur')
     button.style.removeProperty('--basalt-glass-sat')
     button.style.removeProperty('--basalt-glass-bri')
@@ -709,7 +723,11 @@
     button.style.setProperty('--basalt-glass-edge-shadow', edgeShadow)
     button.style.setProperty('--basalt-glass-top', topLight)
     button.style.setProperty('--basalt-glass-bottom', bottomShade)
-    button.textContent = panel ? 'Preview panel' : 'Preview button'
+    const label = button.querySelector('[data-preview-demo-label]')
+    if (label) label.textContent = panel ? 'Preview panel' : 'Preview button'
+    else button.childNodes.forEach(function (node) {
+      if (node.nodeType === 3) node.textContent = panel ? 'Preview panel' : 'Preview button'
+    })
     return { ok: true, kind: 'liquid-glass', panel: panel }
   }
 
@@ -723,9 +741,15 @@
     disposeCatalogPreview(canvas)
     canvas.width = 640
     canvas.height = 400
-    canvas.hidden = true
+    // Stay in layout so IntersectionObserver can see the parent swatch.
+    canvas.hidden = false
+    canvas.style.opacity = '0'
+    const observeTarget =
+      canvas.closest('.swatch, .drawer-preview, [data-interactive-preview], [data-preview-demo-button]') ||
+      canvas
     const state = {
       canvas,
+      observeTarget,
       source: shader.source,
       visible: typeof IntersectionObserver !== 'function',
       initializing: false,
@@ -740,15 +764,88 @@
       startedAt: 0,
     }
     catalogRenderers.set(canvas, state)
+    catalogObserveTargets.set(observeTarget, canvas)
     ensureCatalogObserver()
-    if (catalogObserver) catalogObserver.observe(canvas)
+    if (catalogObserver) catalogObserver.observe(observeTarget)
     if (state.visible) void startCatalogRenderer(state)
+    // If already on-screen, force a visibility check (parent may already intersect).
+    if (catalogObserver && observeTarget.getBoundingClientRect) {
+      const rect = observeTarget.getBoundingClientRect()
+      const onScreen =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < (window.innerHeight || 0) + 160 &&
+        rect.left < (window.innerWidth || 0)
+      if (onScreen) {
+        state.visible = true
+        void startCatalogRenderer(state)
+      }
+    }
     return true
+  }
+
+  /**
+   * Paint the shader ON the Preview button/panel host (not behind it).
+   * Optical glass → CSS liquid-glass chrome. Procedural SkSL → CanvasKit on an
+   * inner canvas clipped to the host.
+   */
+  function mountHostPreview(hostEl, rawText) {
+    if (!(hostEl instanceof HTMLElement) || typeof rawText !== 'string') {
+      return { ok: false, error: 'Host preview unavailable' }
+    }
+    const existing = hostEl.querySelector('canvas[data-basalt-host-preview]')
+    if (existing) disposeCatalogPreview(existing)
+
+    const glass = styleInteractiveDemoHost(hostEl, rawText)
+    if (glass.ok) {
+      hostEl.classList.add('is-shader-host')
+      if (existing) existing.remove()
+      return glass
+    }
+
+    const parsed = parseTexture(rawText)
+    if (!parsed.ok) return { ok: false, error: parsed.error }
+    const shader = shaderFromTexture(parsed.texture)
+    if (!shader) return { ok: false, error: 'No shader in texture' }
+    if (shader.optical) {
+      // Optical without webEffect still gets glass chrome defaults.
+      const forced = styleInteractiveDemoHost(
+        hostEl,
+        JSON.stringify({
+          ...parsed.texture,
+          webEffect: parsed.texture.webEffect || { type: 'liquid-glass' },
+          opticalBackdrop: parsed.texture.opticalBackdrop || { preset: 'liquid-glass-lens' },
+        })
+      )
+      return forced.ok ? forced : { ok: false, optical: true }
+    }
+
+    let canvas = hostEl.querySelector('canvas[data-basalt-host-preview]')
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      canvas.setAttribute('data-basalt-host-preview', '')
+      canvas.setAttribute('aria-hidden', 'true')
+      hostEl.insertBefore(canvas, hostEl.firstChild)
+    }
+    const panel = shader.target === 'panel' || shader.target === 'background'
+    hostEl.classList.add('is-shader-host')
+    if (panel) hostEl.classList.add('is-panel-host')
+    const label = hostEl.querySelector('[data-preview-demo-label]')
+    if (label) label.textContent = panel ? 'Preview panel' : 'Preview button'
+
+    const mountedOk = mountCatalogPreview(canvas, rawText)
+    return mountedOk
+      ? { ok: true, kind: 'shader', panel: panel }
+      : { ok: false, error: 'Could not mount host shader' }
   }
 
   function disposeCatalogPreviews(root) {
     if (!root) return
-    root.querySelectorAll('canvas[data-basalt-catalog-preview]').forEach(disposeCatalogPreview)
+    root
+      .querySelectorAll('canvas[data-basalt-catalog-preview], canvas[data-basalt-host-preview]')
+      .forEach(disposeCatalogPreview)
   }
 
   function drawFrame(now) {
@@ -1068,6 +1165,7 @@
     tryBuildLivePreviewFromTexture,
     // Marketplace live cards (CanvasKit is shared; off-screen cards are paused).
     mountCatalogPreview,
+    mountHostPreview,
     setCatalogPreviewTouch,
     disposeCatalogPreviews,
     styleInteractiveDemoHost,
