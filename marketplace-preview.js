@@ -606,6 +606,113 @@
     }
   }
 
+  const GLASS_DISTORT_FILTER_ID = 'basalt-market-glass-distort'
+  const GLASS_DISTORT_DEFS_ID = 'basalt-market-glass-distort-defs'
+
+  function clampNumber(value, min, max, fallback) {
+    const n = Number(value)
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback
+  }
+
+  /** Same SVG displacement trick as Basalt's web PremiumPanel — warps the backdrop. */
+  function ensureGlassDistortFilter(scale) {
+    if (typeof document === 'undefined') return
+    const safeScale = Math.round(clampNumber(scale, 6, 28, 16) * 10) / 10
+    let host = document.getElementById(GLASS_DISTORT_DEFS_ID)
+    if (!host) {
+      host = document.createElement('div')
+      host.id = GLASS_DISTORT_DEFS_ID
+      host.setAttribute('aria-hidden', 'true')
+      host.style.cssText =
+        'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;left:0;top:0'
+      document.body.appendChild(host)
+    }
+    const prev = host.getAttribute('data-basalt-displace-scale')
+    if (prev === String(safeScale) && host.querySelector('#' + GLASS_DISTORT_FILTER_ID)) return
+    host.setAttribute('data-basalt-displace-scale', String(safeScale))
+    host.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">' +
+      '<defs>' +
+      '<filter id="' +
+      GLASS_DISTORT_FILTER_ID +
+      '" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="noise"/>' +
+      '<feDisplacementMap in="SourceGraphic" in2="noise" scale="' +
+      safeScale +
+      '" xChannelSelector="R" yChannelSelector="G"/>' +
+      '</filter></defs></svg>'
+  }
+
+  /**
+   * Optical liquid-glass packs cannot run CanvasKit with `uniform shader image` on
+   * this page. Style the interactive Preview button/panel with the same CSS glass
+   * Basalt uses on Expo web so the listing looks like the real material.
+   */
+  function styleInteractiveDemoHost(button, rawText) {
+    if (!(button instanceof HTMLElement)) return { ok: false, kind: 'none' }
+    button.classList.remove('is-liquid-glass', 'is-panel-host')
+    button.style.removeProperty('--basalt-glass-blur')
+    button.style.removeProperty('--basalt-glass-sat')
+    button.style.removeProperty('--basalt-glass-bri')
+    button.style.removeProperty('--basalt-glass-surface')
+    button.style.removeProperty('--basalt-glass-edge-light')
+    button.style.removeProperty('--basalt-glass-edge-shadow')
+    button.style.removeProperty('--basalt-glass-top')
+    button.style.removeProperty('--basalt-glass-bottom')
+    button.style.removeProperty('backdrop-filter')
+    button.style.removeProperty('-webkit-backdrop-filter')
+    button.style.removeProperty('background')
+    button.style.removeProperty('background-image')
+    button.style.removeProperty('box-shadow')
+    button.style.removeProperty('border-color')
+
+    const parsed = parseTexture(typeof rawText === 'string' ? rawText : '')
+    if (!parsed.ok) return { ok: false, kind: 'none' }
+    const texture = parsed.texture
+    const webEffect =
+      texture.webEffect && typeof texture.webEffect === 'object' ? texture.webEffect : null
+    const fallback =
+      texture.fallback && typeof texture.fallback === 'object' ? texture.fallback : null
+    const isGlass =
+      (webEffect && String(webEffect.type || '') === 'liquid-glass') ||
+      !!(texture.opticalBackdrop && typeof texture.opticalBackdrop === 'object') ||
+      (fallback && String(fallback.material || '') === 'glass')
+    if (!isGlass) return { ok: false, kind: 'none' }
+
+    const blurPx = clampNumber(
+      webEffect?.blurAmount ?? texture.blurAmount ?? texture.opticalBackdrop?.blurAmount,
+      10,
+      28,
+      14
+    )
+    const satPct = Math.round(clampNumber(webEffect?.saturation, 1.2, 2.2, 1.8) * 100)
+    const bri = clampNumber(webEffect?.brightness, 0.95, 1.2, 1.04)
+    const displace = clampNumber(webEffect?.displacementScale, 6, 28, 16)
+    const surface = color(webEffect?.surfaceColor, 'rgba(255,255,255,0.028)')
+    const edgeLight = color(webEffect?.edgeLightColor, 'rgba(255,255,255,0.88)')
+    const edgeShadow = color(webEffect?.edgeShadowColor, 'rgba(7,16,28,0.48)')
+    const topLight = color(webEffect?.topLightColor, 'rgba(255,255,255,0.38)')
+    const bottomShade = color(webEffect?.bottomShadeColor, 'rgba(8,20,34,0.22)')
+    const panel =
+      texture.target === 'panel' ||
+      texture.target === 'background' ||
+      !!(texture.opticalBackdrop && typeof texture.opticalBackdrop === 'object')
+
+    ensureGlassDistortFilter(displace)
+    button.classList.add('is-liquid-glass')
+    if (panel) button.classList.add('is-panel-host')
+    button.style.setProperty('--basalt-glass-blur', blurPx + 'px')
+    button.style.setProperty('--basalt-glass-sat', String(satPct) + '%')
+    button.style.setProperty('--basalt-glass-bri', String(bri))
+    button.style.setProperty('--basalt-glass-surface', surface)
+    button.style.setProperty('--basalt-glass-edge-light', edgeLight)
+    button.style.setProperty('--basalt-glass-edge-shadow', edgeShadow)
+    button.style.setProperty('--basalt-glass-top', topLight)
+    button.style.setProperty('--basalt-glass-bottom', bottomShade)
+    button.textContent = panel ? 'Preview panel' : 'Preview button'
+    return { ok: true, kind: 'liquid-glass', panel: panel }
+  }
+
   function mountCatalogPreview(canvas, rawText) {
     if (!(canvas instanceof HTMLCanvasElement) || typeof rawText !== 'string') return false
     const parsed = parseTexture(rawText)
@@ -963,5 +1070,6 @@
     mountCatalogPreview,
     setCatalogPreviewTouch,
     disposeCatalogPreviews,
+    styleInteractiveDemoHost,
   }
 })()
